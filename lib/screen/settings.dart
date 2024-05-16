@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:monitoringsystem/check_login.dart';
 import 'package:monitoringsystem/user.dart';
 import 'package:monitoringsystem/home.dart';
@@ -54,6 +55,7 @@ class _set_tingState extends State<set_ting>{
                         borderRadius: BorderRadius.circular(10))),
                 onPressed: () {
                   logout();
+            
                 },
                 child: Text("Sign out"),
               ),

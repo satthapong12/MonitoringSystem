@@ -28,8 +28,8 @@ class _homepageState extends State<homepage> {
     final tabs = [
       noti_fi(),
       his_tory(),
-      pro_file(),
-      set_ting(),
+      pro_file(email: '',),
+     // set_ting(),
     ];
 
     return Scaffold(
@@ -55,11 +55,11 @@ class _homepageState extends State<homepage> {
             icon: Icon(Icons.person),
             label: 'Profile',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'Settings',
+         // BottomNavigationBarItem(
+           // icon: Icon(Icons.settings),
+            //label: 'Settings',
 
-          ),
+         // ),
         ],
       ),
       

@@ -5,15 +5,21 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:monitoringsystem/Service/local_notifcation.dart';
+import 'package:monitoringsystem/check_login.dart';
+import 'package:monitoringsystem/user.dart';
+import 'package:monitoringsystem/login.dart';
+
+
 
 
 Future<void> checkAndSendLineNotification() async {
-  var url = Uri.parse('http://172.20.10.4/flutter_login/pushNotification.php');
 
+  
+ 
+     var url = Uri.parse('http://172.20.10.4/flutter_login/pushNotification.php');
   try {
     var response = await http.get(url);
     print(response.statusCode);
-    
     if (response.statusCode == 200) {
       var responseData = json.decode(response.body) as Map<String, dynamic>;
       var data = responseData['data'];
@@ -42,7 +48,7 @@ Future<void> checkAndSendLineNotification() async {
         print('Message is null. Cannot process notification.');
       }
     }else {
-        print('ไม่พบการโจมตีใหม่');
+       // print('ไม่พบการโจมตีใหม่');
       }
     } else {
       print('Failed to send notification. Status code: ${response.statusCode}');
@@ -50,4 +56,5 @@ Future<void> checkAndSendLineNotification() async {
   } catch (e) {
     print('Error sending notification: $e');
   }
+  
 }

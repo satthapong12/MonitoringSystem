@@ -1,11 +1,14 @@
 // ignore_for_file: prefer_const_constructors, non_constant_identifier_names
 
 import 'package:flutter/material.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'package:monitoringsystem/Service/local_notifcation.dart';
 import 'dart:convert';
+import 'main.dart';
 import 'user.dart';
+import 'Service/fetch_user_profile.dart';
 
 class login extends StatefulWidget {
   const login({Key? key}) : super(key: key);
@@ -15,25 +18,32 @@ class login extends StatefulWidget {
 }
 
 class _loginState extends State<login> {
-  final  formkey = GlobalKey<FormState>();
+  final formkey = GlobalKey<FormState>();
 
+  bool? checklogin = false;
+  String srt = '';
   TextEditingController email = TextEditingController();
   TextEditingController pass = TextEditingController();
-  Future sing_in() async{
-  //  String url = "http://127.0.0.1/flutter_login/login.php";
-   String url = "http://172.20.10.4/flutter_login/login.php";
 
-    final response = await http.post(Uri.parse(url),body: {
-      'email':email.text,
-      'password':pass.text,
+  Future sing_in() async {
+    //  String url = "http://127.0.0.1/flutter_login/login.php";
+    String url = "http://172.20.10.4/flutter_login/login.php";
+
+    final response = await http.post(Uri.parse(url), body: {
+      'email': email.text,
+      'password': pass.text,
     });
     var data = json.decode(response.body);
     print(data);
-    if(data == "Error"){
+    if (data == "Error") {
       Navigator.pushNamed(context, 'login');
-    }else{
+    } else {
+      await User.setsigin(true);
+      print("เข้าสู่ระบบสำเร็จ");
+      String? str = await User.setEmail(email.text);
+      print(str);
+      await fetchUserProfile(email.text);
       Navigator.pushNamed(context, 'home');
-
     }
   }
 
@@ -80,12 +90,12 @@ class _loginState extends State<login> {
                         border: OutlineInputBorder(),
                         labelText: 'Email',
                       ),
-                      validator: (value){
+                      validator: (value) {
                         if (value!.isEmpty) {
-                    return 'Please enter your Email';
-                  }
+                          return 'Please enter your Email';
+                        }
                         return null;
-                      },  
+                      },
                     ),
                   ),
                   SizedBox(
@@ -100,10 +110,10 @@ class _loginState extends State<login> {
                         border: OutlineInputBorder(),
                         labelText: 'Password',
                       ),
-                        validator: (value){
-                        if ( value!.isEmpty) {
-                        return 'Please enter your password';
-                  }
+                      validator: (value) {
+                        if (value!.isEmpty) {
+                          return 'Please enter your password';
+                        }
                         return null;
                       },
                     ),
@@ -119,19 +129,12 @@ class _loginState extends State<login> {
                           primary: const Color(0xFF3F60A0),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(15))),
-                              
-                      onPressed: () {
-                         bool pass = formkey.currentState!.validate();
-                        if (pass){
+                      onPressed: () async {
+                        bool pass = formkey.currentState!.validate();
+                        if (pass) {
                           sing_in();
-                          LocalNotifications.showSimple(
-                            title: "Login",
-                             body: "Login Succ", 
-                             payload: "test");
+                          await initializeService();
                         }
-
-                       
-                       
                       },
                       child: const Text(
                         'Sign in',
@@ -143,13 +146,13 @@ class _loginState extends State<login> {
                     ),
                   ),
                   //TextButton(
-                    //style: TextButton.styleFrom(
-                      //textStyle: const TextStyle(fontSize: 15),
-                    //),
-                    //onPressed: () {
-                      //Navigator.pushNamed(context, 'register');
-                    //},S
-                    //child: const Text("Didn't have any Account? Sign Up now"),
+                  //style: TextButton.styleFrom(
+                  //textStyle: const TextStyle(fontSize: 15),
+                  //),
+                  //onPressed: () {
+                  //Navigator.pushNamed(context, 'register');
+                  //},S
+                  //child: const Text("Didn't have any Account? Sign Up now"),
                   //),
                 ],
               ),

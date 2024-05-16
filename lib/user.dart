@@ -18,6 +18,17 @@ class User{
   }
   static Future setsigin(bool signin) async{
     SharedPreferences pref = await SharedPreferences.getInstance();
-    await pref.setBool("Sign-in", signin);
+     await pref.setBool("Sign-in", signin);
   }
+    static Future<String> setEmail(String email) async {
+    SharedPreferences pref = await SharedPreferences.getInstance();
+    await pref.setString("Email", email);
+    return email;
+  }
+  static Future<String?> getEmail() async{
+    SharedPreferences pref = await SharedPreferences.getInstance();{}
+    return pref.getString("Email");
+  }
+ 
+
 }
