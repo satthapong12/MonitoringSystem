@@ -16,7 +16,7 @@ Future<void> checkAndSendLineNotification() async {
 
   
  
-     var url = Uri.parse('http://172.20.10.4/flutter_login/pushNotification.php');
+     var url = Uri.parse('http://192.168.1.100/flutter_login/pushNotification.php');
   try {
     var response = await http.get(url);
     print(response.statusCode);

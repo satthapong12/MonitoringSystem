@@ -27,7 +27,7 @@ class _loginState extends State<login> {
 
   Future sing_in() async {
     //  String url = "http://127.0.0.1/flutter_login/login.php";
-    String url = "http://172.20.10.4/flutter_login/login.php";
+    String url = "http://192.168.1.100/flutter_login/login.php";
 
     final response = await http.post(Uri.parse(url), body: {
       'email': email.text,

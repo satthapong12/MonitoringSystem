@@ -23,7 +23,7 @@ class _his_toryState extends State<his_tory> {
 
   Future<List<Map<String, dynamic>>> fetchNotifications(String date) async {
     final response = await http.get(
-        Uri.parse('http://172.20.10.4/flutter_login/show_notification.php?date=$date'));
+        Uri.parse('http://192.168.1.100/flutter_login/show_notification.php?date=$date'));
 
     if (response.statusCode == 200) {
       List<dynamic> data = jsonDecode(response.body);
@@ -161,7 +161,7 @@ class _his_toryState extends State<his_tory> {
 
   Future<void> _deleteNotification(Map<String, dynamic> notification) async {
     final response = await http.post(
-      Uri.parse('http://172.20.10.4/flutter_login/delete_notification.php'),
+      Uri.parse('http://192.168.1.100/flutter_login/delete_notification.php'),
       body: jsonEncode(notification),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',

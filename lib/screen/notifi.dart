@@ -35,9 +35,9 @@ class _noti_fiState extends State<noti_fi> with TickerProviderStateMixin {
   }
 
   Future<void> getAllWarning([String? formattedDate]) async {
-    var url = Uri.parse("http://172.20.10.4/flutter_login/getDectec.php");
+    var url = Uri.parse("http://192.168.1.100/flutter_login/getDectec.php");
     if (formattedDate != null) {
-      url = Uri.parse("http://172.20.10.4/flutter_login/getDectec.php?date=$formattedDate");
+      url = Uri.parse("http://192.168.1.100/flutter_login/getDectec.php?date=$formattedDate");
     }
     var response = await http.get(url);
     if (response.statusCode == 200) {
@@ -52,7 +52,7 @@ class _noti_fiState extends State<noti_fi> with TickerProviderStateMixin {
 
   Future<void> deleteNotification(String dateDetec) async {
     var response = await http.post(
-      Uri.parse("http://172.20.10.4/flutter_login/delete_notification.php"),
+      Uri.parse("http://192.168.1.100/flutter_login/delete_notification.php"),
       body: jsonEncode({'Date_detec': dateDetec}),
     );
     if (response.statusCode == 200) {
