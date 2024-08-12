@@ -1,14 +1,15 @@
-// ignore_for_file: prefer_const_constructors, non_constant_identifier_names
-
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'package:monitoringsystem/Service/local_notifcation.dart';
+import 'package:monitoringsystem/home.dart';
 import 'dart:convert';
+import 'package:connectivity/connectivity.dart';
 import 'main.dart';
 import 'user.dart';
 import 'Service/fetch_user_profile.dart';
+import 'package:webview_flutter_plus/webview_flutter_plus.dart';
 
 class login extends StatefulWidget {
   const login({Key? key}) : super(key: key);
@@ -24,10 +25,12 @@ class _loginState extends State<login> {
   String srt = '';
   TextEditingController email = TextEditingController();
   TextEditingController pass = TextEditingController();
+  bool isLoading = false;
+  bool captchaVerified = false;
+  bool showCaptcha = true;
 
   Future sing_in() async {
-    //  String url = "http://127.0.0.1/flutter_login/login.php";
-    String url = "http://192.168.1.100/flutter_login/login.php";
+    String url = "http://192.168.1.104:3001/login";
 
     final response = await http.post(Uri.parse(url), body: {
       'email': email.text,
@@ -36,6 +39,9 @@ class _loginState extends State<login> {
     var data = json.decode(response.body);
     print(data);
     if (data == "Error") {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Invalid email or password')),
+      );
       Navigator.pushNamed(context, 'login');
     } else {
       await User.setsigin(true);
@@ -47,9 +53,19 @@ class _loginState extends State<login> {
     }
   }
 
+  Future<bool> checkNetwork() async {
+    var connectivityResult = await (Connectivity().checkConnectivity());
+    if (connectivityResult == ConnectivityResult.none) {
+      return false;
+    } else {
+      return true;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFFF5F5F5),
+      backgroundColor: Color.fromARGB(255, 255, 255, 255),
       body: Center(
         child: Form(
           key: formkey,
@@ -77,10 +93,6 @@ class _loginState extends State<login> {
                   SizedBox(
                     height: 30,
                   ),
-                  //Image.asset('assets/img/Picture.png'),
-                  SizedBox(
-                    height: 20,
-                  ),
                   SizedBox(
                     width: 350,
                     child: TextFormField(
@@ -93,6 +105,12 @@ class _loginState extends State<login> {
                       validator: (value) {
                         if (value!.isEmpty) {
                           return 'Please enter your Email';
+                        }
+                        bool emailValid = RegExp(
+                                r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
+                            .hasMatch(value);
+                        if (!emailValid) {
+                          return 'Please enter a valid Email';
                         }
                         return null;
                       },
@@ -121,45 +139,95 @@ class _loginState extends State<login> {
                   SizedBox(
                     height: 20,
                   ),
+                  if (showCaptcha)
+                    Center(
+                      child: SizedBox(
+                        height: 300,
+                        width: 350, // Adjust width as needed
+                        child: WebViewPlus(
+                          javascriptMode: JavascriptMode.unrestricted,
+                          onWebViewCreated: (controller) {
+                            controller.loadUrl('assets/webpages/index.html');
+                          },
+                          javascriptChannels: Set.from({
+                            JavascriptChannel(
+                              name: 'Captcha',
+                              onMessageReceived: (JavascriptMessage message) {
+                                setState(() {
+                                  captchaVerified = true;
+                                });
+                              },
+                            ),
+                          }),
+                        ),
+                      ),
+                    ),
+                  SizedBox(
+                    height: 5,
+                  ),
                   SizedBox(
                     width: 350,
                     height: 60,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                          primary: const Color(0xFF3F60A0),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(15))),
-                      onPressed: () async {
-                        bool pass = formkey.currentState!.validate();
-                        if (pass) {
-                          sing_in();
-                          await initializeService();
-                        }
-                      },
-                      child: const Text(
-                        'Sign in',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                        primary: const Color(0xFF3F60A0),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
                         ),
                       ),
+                      onPressed: () async {
+                        bool valid = formkey.currentState!.validate();
+                        if (valid) {
+                          if (!showCaptcha) {
+                            setState(() {
+                              showCaptcha = true;
+                            });
+                          } else if (captchaVerified) {
+                            bool network = await checkNetwork();
+                            if (network) {
+                              setState(() {
+                                isLoading = true;
+                              });
+                              await sing_in();
+                              await initializeService();
+                              setState(() {
+                                isLoading = false;
+                              });
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                    content: Text('No internet connection')),
+                              );
+                            }
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                  content: Text('Please complete the captcha')),
+                            );
+                          }
+                        }
+                      },
+                      child: isLoading
+                          ? CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            )
+                          : const Text(
+                              'Sign in',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                     ),
                   ),
-                  //TextButton(
-                  //style: TextButton.styleFrom(
-                  //textStyle: const TextStyle(fontSize: 15),
-                  //),
-                  //onPressed: () {
-                  //Navigator.pushNamed(context, 'register');
-                  //},S
-                  //child: const Text("Didn't have any Account? Sign Up now"),
-                  //),
                 ],
               ),
             ],
           ),
         ),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+      ),
     );
   }
 }

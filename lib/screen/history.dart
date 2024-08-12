@@ -21,24 +21,33 @@ class _his_toryState extends State<his_tory> {
     _dateController = TextEditingController();
   }
 
-  Future<List<Map<String, dynamic>>> fetchNotifications(String date) async {
-    final response = await http.get(
-        Uri.parse('http://192.168.1.100/flutter_login/show_notification.php?date=$date'));
+ Future<List<Map<String, dynamic>>> fetchNotifications(String date) async {
+  final response = await http.get(
+      Uri.parse('http://192.168.1.102/flutter_login/show_notification.php?'));
 
-    if (response.statusCode == 200) {
-      List<dynamic> data = jsonDecode(response.body);
+  if (response.statusCode == 200) {
+    var data = jsonDecode(response.body);
+
+    // ตรวจสอบประเภทของข้อมูลที่ได้รับ
+    if (data is Map<String, dynamic>) {
+      // ในกรณีที่ไม่มีข้อมูลและข้อมูลที่ได้รับเป็น Map
+      return [];
+    } else if (data is List) {
       List<Map<String, dynamic>> notifications =
           data.map((e) => e as Map<String, dynamic>).toList();
 
-      // Filter notifications to only include those with the selected date
+      // กรองการแจ้งเตือนให้รวมเฉพาะวันที่ที่เลือก
       notifications = notifications.where((notification) =>
           notification['Date_detec'].startsWith(date)).toList();
 
       return notifications;
     } else {
-      throw Exception('Failed to load notifications');
+      throw Exception('รูปแบบข้อมูลไม่ถูกต้อง');
     }
+  } else {
+    throw Exception('ไม่สามารถโหลดการแจ้งเตือนได้');
   }
+}
 
   IconData getIconForStatus(String status) {
     switch (status) {
@@ -161,7 +170,7 @@ class _his_toryState extends State<his_tory> {
 
   Future<void> _deleteNotification(Map<String, dynamic> notification) async {
     final response = await http.post(
-      Uri.parse('http://192.168.1.100/flutter_login/delete_notification.php'),
+      Uri.parse('http://192.168.1.102/flutter_login/delete_notification.php'),
       body: jsonEncode(notification),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',

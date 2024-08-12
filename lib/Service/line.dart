@@ -16,7 +16,7 @@ Future<void> checkAndSendLineNotification() async {
 
   
  
-     var url = Uri.parse('http://192.168.1.100/flutter_login/pushNotification.php');
+     var url = Uri.parse('http://192.168.1.102/flutter_login/pushNotification.php');
   try {
     var response = await http.get(url);
     print(response.statusCode);
@@ -24,6 +24,9 @@ Future<void> checkAndSendLineNotification() async {
       var responseData = json.decode(response.body) as Map<String, dynamic>;
       var data = responseData['data'];
       var message = data['message'];
+      if(message == null){
+          print("no Data");
+      }
       var notificationStatus = data['notificationStatus'];
 
     if(notificationStatus == "Notification sent successfully!"){

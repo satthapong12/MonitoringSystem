@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:monitoringsystem/user.dart';
 
 Future<void> fetchUserProfile(String userEmail) async {
-  String url = "http://192.168.1.100/flutter_login/getperson.php";
+  String url = "http://192.168.1.102/flutter_login/getperson.php";
   final response = await http.get(Uri.parse(url));
   String message = '';
   String item = '';

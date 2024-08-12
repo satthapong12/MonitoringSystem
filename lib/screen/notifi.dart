@@ -34,25 +34,25 @@ class _noti_fiState extends State<noti_fi> with TickerProviderStateMixin {
     });
   }
 
-  Future<void> getAllWarning([String? formattedDate]) async {
-    var url = Uri.parse("http://192.168.1.100/flutter_login/getDectec.php");
-    if (formattedDate != null) {
-      url = Uri.parse("http://192.168.1.100/flutter_login/getDectec.php?date=$formattedDate");
-    }
-    var response = await http.get(url);
-    if (response.statusCode == 200) {
-      setState(() {
-        warning = json.decode(response.body)['DetecPattern'];
-        filteredWarning = List.from(warning);
-      });
-    } else {
-      throw Exception('Failed to load data');
-    }
+Future<void> getAllWarning([String? formattedDate]) async {
+  var url = Uri.parse("http://192.168.1.102/flutter_login/getDectec.php");
+  if (formattedDate != null) {
+    url = Uri.parse("http://192.168.1.102/flutter_login/getDectec.php?date=$formattedDate");
   }
+  var response = await http.get(url);
+  if (response.statusCode == 200) {
+    setState(() {
+      warning = json.decode(response.body)['DetecPattern'];
+      filteredWarning = List.from(warning);
+    });
+  } else {
+    throw Exception('Failed to load data');
+  }
+}
 
   Future<void> deleteNotification(String dateDetec) async {
     var response = await http.post(
-      Uri.parse("http://192.168.1.100/flutter_login/delete_notification.php"),
+      Uri.parse("http://192.168.1.102/flutter_login/delete_notification.php"),
       body: jsonEncode({'Date_detec': dateDetec}),
     );
     if (response.statusCode == 200) {
@@ -64,26 +64,22 @@ class _noti_fiState extends State<noti_fi> with TickerProviderStateMixin {
     }
   }
 
-   Future<void> _showDatePicker(BuildContext context) async {
-    if (_dateController != null) { // ตรวจสอบว่า _dateController ไม่เป็น null ก่อนใช้งาน
-      final DateTime? pickedDate = await showDatePicker(
-        context: context,
-        initialDate: DateTime.now(),
-        firstDate: DateTime(2010),
-        lastDate: DateTime.now(),
-      );
+Future<void> _showDatePicker(BuildContext context) async {
+  final pickedDate = await showDatePicker(
+    context: context,
+    initialDate: DateTime.now(),
+    firstDate: DateTime(2010),
+    lastDate: DateTime.now(),
+  );
 
-      if (pickedDate != null && mounted) {
-        setState(() {
-          _dateController.text = _formattedDate(pickedDate);
-          getAllWarning(_formattedDate(pickedDate));
-        });
-      }
-    } else {
-      // Handle the case when _dateController is null
-      print('_dateController is null');
-    }
+  if (pickedDate != null) {
+    setState(() {
+      _dateController.text = _formattedDate(pickedDate);
+    });
+
+    getAllWarning(_formattedDate(pickedDate)); // กรองรายการคำเตือนตามวันที่ที่เลือก
   }
+}
 
 
   String _formattedDate(DateTime date) {
@@ -102,14 +98,19 @@ void filterWarnings() {
         filteredWarning = warning;
         break;
       case 1:
-        filteredWarning = warning.where((warning) => warning['Status'] == 'GREEN' && warning['Date_detec'] == _dateController.text).toList();
+        filteredWarning = warning.where((warning) => warning['Status'] == 'GREEN').toList();
         break;
       case 2:
-        filteredWarning = warning.where((warning) => warning['Status'] == 'ORANGE' && warning['Date_detec'] == _dateController.text).toList();
+        filteredWarning = warning.where((warning) => warning['Status'] == 'ORANGE').toList();
         break;
       case 3:
-        filteredWarning = warning.where((warning) => warning['Status'] == 'RED' && warning['Date_detec'] == _dateController.text).toList();
+        filteredWarning = warning.where((warning) => warning['Status'] == 'RED').toList();
         break;
+    }
+
+    // กรองรายการคำเตือนตามวันที่ (ถ้ามีวันที่ที่เลือก)
+    if (_dateController.text.isNotEmpty) {
+      filteredWarning = filteredWarning.where((warning) => warning['Date_detec'] == _dateController.text).toList();
     }
   });
 }
@@ -119,19 +120,19 @@ void filterWarnings() {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('History'),
+        title: const Text('History'),
         automaticallyImplyLeading: false,
         actions: [
           IconButton(
             onPressed: () async {
               await _showDatePicker(context);
             },
-            icon: Icon(Icons.calendar_today),
+           icon: const Icon(Icons.calendar_today),
           ),
         ],
         bottom: TabBar(
           controller: _tabController,
-          tabs: [
+          tabs: const [
             Tab(text: 'All'),
             Tab(text: 'Green'),
             Tab(text: 'Orange'),
