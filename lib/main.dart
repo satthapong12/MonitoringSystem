@@ -6,6 +6,7 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:monitoringsystem/Service/local_notifcation.dart';
 import 'package:monitoringsystem/home.dart';
 import 'package:monitoringsystem/user.dart';
+import 'Service/fetch_user_profile.dart';
 import 'Service/line.dart';
 import 'login.dart';
 import 'register.dart';
@@ -17,6 +18,8 @@ void main() async {
   await LocalNotifications.intit();
    //initializeService();
   runApp(const MyApp());
+  //fetchUserProfile();
+
 }
 
 class MyApp extends StatelessWidget {

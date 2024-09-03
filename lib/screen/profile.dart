@@ -23,54 +23,58 @@ class _pro_fileState extends State<pro_file> {
   void initState() {
     super.initState();
     // เรียกใช้งานฟังก์ชัน fetchUserProfile() เมื่อหน้า Profile ถูกโหลด
-    fetchUserProfile(User.email);
+    fetchUserProfile();
+    User.checkLoginStatus();
+
+  }
+  @override
+  void didChangeDependencies(){
+    super.didChangeDependencies();
+    fetchUserProfile();
   }
 
-  Future logout() async {
-    await User.setsigin(false);
-    await User.setEmail('');
-    FlutterBackgroundService().invoke('stopService');
-    Navigator.pushNamed(context, 'login');
-  }
 
-  Future<void> updateUserProfile(String field, String value) async {
-    final response = await http.post(
-      Uri.parse('http://192.168.1.102/flutter_login/UpdataUser.php'),
-      body: {
-        'email': User.email,
-        'field': field,
-        'value': value,
-      },
-    );
+ Future<void> updateUserProfile(String field, String value) async {
+     Map<String, String?> settings = await User.getSettings();
+  String? ip = settings['ip'];
+  String? port = settings['port'];
+  final response = await http.post(
+    Uri.parse('http://$ip:$port/update_user'),
+    body: {
+      'email': User.email,
+      'field': field,
+      'value': value,
+    },
+  );
 
-    if (response.statusCode == 200) {
-      final responseBody = json.decode(response.body);
-      if (responseBody['status'] == 'success') {
-        setState(() {
-          switch (field) {
-            case 'firstname':
-              User.firstName = value;
-              break;
-            case 'lastname':
-              User.lastName = value;
-              break;
-            case 'phone':
-              User.phone = value;
-              break;
-            case 'description':
-              User.description = value;
-              break;
-          }
-        });
-      } else {
-        // Handle error
-        log('Error updating profile: ${responseBody['message']}');
-      }
+  if (response.statusCode == 200) {
+    final responseBody = json.decode(response.body);
+    if (responseBody['status'] == 'success') {
+      setState(() {
+        switch (field) {
+          case 'firstname':
+            User.firstName = value;
+            break;
+          case 'lastname':
+            User.lastName = value;
+            break;
+          case 'phone':
+            User.phone = value;
+            break;
+          case 'description':
+            User.description = value;
+            break;
+        }
+      });
     } else {
       // Handle error
-      log('Error updating profile: ${response.statusCode}');
+      log('Error updating profile: ${responseBody['message']}');
     }
+  } else {
+    // Handle error
+    log('Error updating profile: ${response.statusCode}');
   }
+}
 
   Future<void> _showEditDialog(String field, String currentValue) async {
     TextEditingController controller =
@@ -229,24 +233,7 @@ class _pro_fileState extends State<pro_file> {
                   subtitle: Text(User.description),
                 ),
               ),
-              Divider(),
-              const SizedBox(height: 16),
-              const Divider(),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  onPressed: () async {
-                    logout();
-                    // เรียกเหตุการณ์ stopService
-                  },
-                  child: Text('Sign Out'),
-                ),
-              ),
+              
             ],
           ),
         ),

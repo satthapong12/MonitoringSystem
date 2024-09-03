@@ -2,28 +2,53 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:monitoringsystem/user.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-Future<void> fetchUserProfile(String userEmail) async {
-  String url = "http://192.168.1.102/flutter_login/getperson.php";
-  final response = await http.get(Uri.parse(url));
-  String message = '';
-  String item = '';
-  if (response.statusCode == 200) {
-    var data = json.decode(response.body);
-    for (var item in data) {
-      message = item['email'];
-      if (message == await User.getEmail()) {
-        User.firstName = item['firstname'] as String;
-        User.lastName = item['lastname'] as String;
-        User.email = item['email'] as String;
-        User.phone = item['phone'] as String;
-        User.description = item['description'] as String;
+
+
+Future<void> fetchUserProfile() async {
+  
+  // URL ของ API ที่ดึงข้อมูลผู้ใช้
+  String url = "http://192.168.1.104:3001/data/users";
+  
+  try {
+    // เรียกข้อมูลจาก API
+    final response = await http.get(Uri.parse(url));
+        String? userEmail = await User.getEmail();
+        print("LoginCheck : $userEmail");
+
+    if (response.statusCode == 200) {
+      // แปลงข้อมูลจาก JSON
+      var data = json.decode(response.body);
+      
+      // ตรวจสอบว่ามีข้อมูลผู้ใช้หรือไม่
+      if (data is List) {
+        bool userFound = false;
+        // วนลูปเพื่อหาผู้ใช้ตามอีเมล
+        for (var item in data) {
+          String email = item['email'];
+          if (email ==userEmail) {
+            // กำหนดข้อมูลผู้ใช้
+            User.firstName = item['firstname'] as String;
+            User.lastName = item['lastname'] as String;
+            User.email = item['email'] as String;
+            User.phone = item['phone'] as String;
+            User.description = item['description'] as String;
+            userFound = true;
+            break; // หยุดวนลูปเมื่อพบผู้ใช้
+          }
+        }
+
+        if (!userFound) {
+          print("User data not found for email: $userEmail");
+        }
       } else {
-        print("User data not found for email: ${await User.getEmail()}");
+        print("Invalid data format received");
       }
-      print("email: $message");
+    } else {
+      print("Failed to fetch data: ${response.statusCode}");
     }
-  } else {
-    print("Failed to fetch data: ${response.statusCode}");
+  } catch (e) {
+    print("Error: $e");
   }
 }

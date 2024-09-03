@@ -13,45 +13,44 @@ import 'package:monitoringsystem/login.dart';
 
 
 Future<void> checkAndSendLineNotification() async {
+  var url = Uri.parse('http://192.168.1.104:3001/pushNotification/notify');
 
-  
- 
-     var url = Uri.parse('http://192.168.1.102/flutter_login/pushNotification.php');
   try {
     var response = await http.get(url);
-    print(response.statusCode);
+    print('Status Code: ${response.statusCode}');
+    print('Response Body: ${response.body}');
+
     if (response.statusCode == 200) {
       var responseData = json.decode(response.body) as Map<String, dynamic>;
-      var data = responseData['data'];
-      var message = data['message'];
-      if(message == null){
-          print("no Data");
-      }
-      var notificationStatus = data['notificationStatus'];
+      print('Response Data: $responseData');
 
-    if(notificationStatus == "Notification sent successfully!"){
-      print("พบการโจมตี");
-        if (message != null) {
-        var lines = message.split('\n');
-        var title = lines[0];
-        var body = '';
-        var payload = '';
+      // ตรวจสอบคีย์ 'data' และข้อมูลที่ได้รับ
+      if (responseData.containsKey('message') && responseData.containsKey('notificationStatus')) {
+        var message = responseData['message'];
+        var notificationStatus = responseData['notificationStatus'];
 
-        for (var i = 1; i < lines.length; i++) {
-          body += lines[i] + '\n';
+        if (notificationStatus == "Notification sent successfully!") {
+          print("พบการโจมตี");
+
+          if (message != null) {
+            var lines = message.split('\n');
+            var title = lines.isNotEmpty ? lines[0] : 'Notification';
+            var body = lines.skip(1).join('\n');
+            var payload = '';
+
+            LocalNotifications.showSimple(
+              title: title,
+              body: body,
+              payload: payload,
+            );
+          } else {
+            print('Message is null. Cannot process notification.');
+          }
+        } else {
+          print('No new attacks found.');
         }
-
-        LocalNotifications.showSimple(
-          title: title,
-          body: body,
-          payload: payload,
-        );
       } else {
-        // แสดงข้อความหรือกระทำตามที่คุณต้องการในกรณีที่ข้อความเป็น null
-        print('Message is null. Cannot process notification.');
-      }
-    }else {
-       // print('ไม่พบการโจมตีใหม่');
+        print('Invalid response format or data is null.');
       }
     } else {
       print('Failed to send notification. Status code: ${response.statusCode}');
@@ -59,5 +58,4 @@ Future<void> checkAndSendLineNotification() async {
   } catch (e) {
     print('Error sending notification: $e');
   }
-  
 }
