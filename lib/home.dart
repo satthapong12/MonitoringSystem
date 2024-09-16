@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:monitoringsystem/screen/history.dart';
-import 'package:monitoringsystem/screen/notifi.dart';
-import 'package:monitoringsystem/screen/profile.dart';
-import 'package:monitoringsystem/screen/settings.dart';
+import 'package:Monitoring/screen/history.dart';
+import 'package:Monitoring/screen/notifi.dart';
+import 'package:Monitoring/screen/profile.dart';
+import 'package:Monitoring/screen/settings.dart';
 import 'user.dart';
 
 class homepage extends StatefulWidget {

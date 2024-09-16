@@ -4,7 +4,9 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:intl/intl.dart';
+import 'package:Monitoring/screen/readfile.dart';
 
+import '../Service/fetch_user_profile.dart';
 import '../user.dart';
 
 class his_tory extends StatefulWidget {
@@ -21,23 +23,19 @@ class _his_toryState extends State<his_tory> {
   @override
   void initState() {
     super.initState();
-    _notificationFuture = fetchNotifications(""); // Default fetch without date
+        fetchUserProfile();
+
+    _notificationFuture = fetchNotifications(); // Default fetch without date
     _dateController = TextEditingController();
   }
 
-Future<List<Map<String, dynamic>>> fetchNotifications(String date) async {
+Future<List<Map<String, dynamic>>> fetchNotifications([String? date]) async {
   Map<String, String?> settings = await User.getSettings();
   String? ip = settings['ip'];
   String? port = settings['port'];
-  if (date.isEmpty) {
-    print('Selected date is empty');
-    throw Exception('Selected date cannot be empty');
-  }
 
-  print('Selected date: $date');
-
-  final response = await http.get(Uri.parse(
-      'http://$ip:$port/showNotifications/getNotifications'));
+  final uri = Uri.parse('http://$ip:$port/showNotifications/getNotifications${date != null ? '?date=$date' : ''}');
+  final response = await http.get(uri);
 
   if (response.statusCode == 200) {
     try {
@@ -45,39 +43,16 @@ Future<List<Map<String, dynamic>>> fetchNotifications(String date) async {
       print('Response data: $data');
 
       if (data is Map<String, dynamic> && data.containsKey('data')) {
-        List<Map<String, dynamic>> notifications =
-            List<Map<String, dynamic>>.from(data['data']);
+        List<Map<String, dynamic>> notifications = List<Map<String, dynamic>>.from(data['data']);
 
-        // ปริ้นข้อมูล date_detec ของแต่ละการแจ้งเตือนและแปลงเป็นวันที่
-        for (var notification in notifications) {
-          String dateDetec = notification['date_detec'];
-         // print('Original date_detec: $dateDetec');
-
-          try {
-            DateTime parsedDate = DateTime.parse(dateDetec).toLocal();
-            String formattedDate = DateFormat('yyyy-MM-dd HH:mm:ss').format(parsedDate);
-           // print('Formatted date_detec: $formattedDate');
-          } catch (e) {
-            print('Error parsing date_detec: $dateDetec');
-          }
+        // Filter notifications to include only those with the exact date (ignoring time)
+        if (date != null) {
+          notifications = notifications.where((notification) {
+            final notificationDate = notification['date_detec'] as String?;
+            return notificationDate != null &&
+                notificationDate.startsWith(date);
+          }).toList();
         }
-
-        // แปลงวันที่ที่เลือกเป็น DateTime
-        DateTime selectedDate = DateTime.parse(date);
-        String formattedSelectedDate = DateFormat('yyyy-MM-dd').format(selectedDate);
-      //  print('Formatted selected date: $formattedSelectedDate');
-
-        // กรองการแจ้งเตือนให้รวมเฉพาะวันที่ที่เลือก
-        notifications = notifications.where((notification) {
-          try {
-            DateTime notificationDate = DateTime.parse(notification['date_detec']).toLocal();
-            String formattedNotificationDate = DateFormat('yyyy-MM-dd').format(notificationDate);
-            return formattedNotificationDate == formattedSelectedDate;
-          } catch (e) {
-            print('Error parsing date for notification: ${notification['date_detec']}');
-            return false; // ข้ามการแจ้งเตือนที่มีวันที่ไม่ถูกต้อง
-          }
-        }).toList();
 
         print('Filtered notifications: $notifications');
         return notifications;
@@ -94,9 +69,6 @@ Future<List<Map<String, dynamic>>> fetchNotifications(String date) async {
     throw Exception('Failed to load notifications');
   }
 }
-
-
-
 
   IconData getIconForStatus(String status) {
     switch (status) {
@@ -124,50 +96,55 @@ Future<List<Map<String, dynamic>>> fetchNotifications(String date) async {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Color(0xFFF5F5F5),
-      appBar: AppBar(
-        backgroundColor: Colors.blue,
-        automaticallyImplyLeading: false,
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text("Notification"),
-            IconButton(
-              onPressed: () async {
-                await _showDatePicker(context);
-              },
-              icon: Icon(Icons.calendar_today),
-            ),
-          ],
-        ),
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    backgroundColor: Color(0xFFF5F5F5),
+    appBar: AppBar(
+      backgroundColor: Colors.blue,
+      automaticallyImplyLeading: false,
+      title: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text("Notifications", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          IconButton(
+            onPressed: () async {
+              await _showDatePicker(context);  // สมมติว่ามีฟังก์ชัน `_showDatePicker`
+            },
+            icon: Icon(Icons.calendar_today, color: Colors.white),
+          ),
+        ],
       ),
-      body: Center(
-        child: FutureBuilder<List<Map<String, dynamic>>>(
-          future: _notificationFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return CircularProgressIndicator();
-            } else if (snapshot.hasError) {
-              return Text('Error: ${snapshot.error}');
+    ),
+    body: Center(
+      child: FutureBuilder<List<Map<String, dynamic>>>(
+        future: _notificationFuture,  // ตรวจสอบว่าชื่อ Future ตรงหรือไม่
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return CircularProgressIndicator();
+          } else if (snapshot.hasError) {
+            return Text('Error: ${snapshot.error}', style: TextStyle(color: Colors.red, fontSize: 16));
+          } else {
+            if (snapshot.data!.isEmpty) {
+              return Text('No notifications found.', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold));
             } else {
-              if (snapshot.data!.isEmpty) {
-                return Text('No notifications found.');
-              } else {
-                return ListView.builder(
-                  itemCount: snapshot.data!.length,
-                  itemBuilder: (context, index) {
-                    var notification = snapshot.data![index];
-                    return Card(
-                      elevation: 3,
-                      margin: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              return ListView.builder(
+                itemCount: snapshot.data!.length,
+                itemBuilder: (context, index) {
+                  var notification = snapshot.data![index];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    child: Card(
+                      elevation: 4,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
                       child: ListTile(
+                        contentPadding: EdgeInsets.all(16),
                         leading: Icon(
+                          grade: 24,
                           getIconForStatus(notification['status'] ?? ''),
-                          color:
-                              getColorForStatus(notification['status'] ?? ''),
+                          color: getColorForStatus(notification['status'] ?? ''),
                           size: 32,
                         ),
                         title: Column(
@@ -175,38 +152,40 @@ Future<List<Map<String, dynamic>>> fetchNotifications(String date) async {
                           children: [
                             Text(
                               "Type: ${notification['type'] ?? 'N/A'}",
-                              style: TextStyle(fontWeight: FontWeight.bold),
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                             ),
+                            SizedBox(height: 5),
                             Text("Count: ${notification['count'] ?? 'N/A'}"),
                             Text(
-                                "Status: ${notification['status'] ?? 'Unknown'}"),
-                            Text(
-                                "Date Detected: ${notification['date_detec'] ?? 'Unknown'}"),
-                            //Text("File Path: ${notification['file_path'] ?? 'No file path'}"),
+                              "Status: ${notification['status'] ?? 'Unknown'}",
+                              style: TextStyle(
+                                color: getColorForStatus(notification['status'] ?? ''),
+                              ),
+                            ),
+                            Text("Date Detected: ${notification['date_detec'] ?? 'Unknown'}"),
                           ],
                         ),
                         trailing: IconButton(
-                          icon: Icon(Icons.delete),
+                          icon: Icon(Icons.delete, color: Colors.red),
                           onPressed: () {
                             showDialog(
                               context: context,
                               builder: (context) => AlertDialog(
-                                title: Text('Confirm Deletion'),
-                                content: Text(
-                                    'Are you sure you want to delete this Notification?'),
+                                title: Text('Confirm Deletion', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                                content: Text('Are you sure you want to delete this history?'),
                                 actions: [
                                   TextButton(
                                     onPressed: () {
                                       Navigator.of(context).pop();
                                     },
-                                    child: Text('Cancel'),
+                                    child: Text('Cancel', style: TextStyle(color: Colors.grey)),
                                   ),
                                   TextButton(
                                     onPressed: () {
                                       Navigator.of(context).pop();
-                                      _deleteNotification(notification);
+                                      _deleteNotification(notification);  // ฟังก์ชันลบ
                                     },
-                                    child: Text('Delete'),
+                                    child: Text('Delete', style: TextStyle(color: Colors.red)),
                                   ),
                                 ],
                               ),
@@ -214,21 +193,30 @@ Future<List<Map<String, dynamic>>> fetchNotifications(String date) async {
                           },
                         ),
                         onTap: () {
-                          _showFileContentDialog(
-                              context, notification['id'].toString());
+                          final filePath = notification['id'].toString();
+                          if (filePath.isNotEmpty) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => FileContentPage(filePath: filePath),  // หน้าดูไฟล์
+                              ),
+                            );
+                          } else {
+                            print("File path is missing");
+                          }
                         },
                       ),
-                    );
-                  },
-                );
-              }
+                    ),
+                  );
+                },
+              );
             }
-          },
-        ),
+          }
+        },
       ),
-    );
-  }
-
+    ),
+  );
+}
   void _showFileContentDialog(BuildContext context, String filePath) async {
     print('File Path: $filePath');
 
@@ -365,8 +353,17 @@ Future<List<Map<String, dynamic>>> fetchNotifications(String date) async {
   }
 
   Future<void> _deleteNotification(Map<String, dynamic> notification) async {
+       Map<String, String?> settings = await User.getSettings();
+  String? ip = settings['ip'];
+  String? port = settings['port'];
+  if (ip == null || ip.isEmpty || port == null || port.isEmpty) {
+    ScaffoldMessenger.of(context as BuildContext).showSnackBar(
+      SnackBar(content: Text('Please set IP and Port before signing in')),
+    );
+    return;
+  }
     final response = await http.post(
-      Uri.parse('http://192.168.1.104:3001/deleteNotification'),
+      Uri.parse('http://$ip:$port/deleteNotification'),
       body: jsonEncode(
           {'id': notification['id']}), // Send only the id for deletion
       headers: <String, String>{
@@ -383,21 +380,23 @@ Future<List<Map<String, dynamic>>> fetchNotifications(String date) async {
     }
   }
 
-  Future<void> _showDatePicker(BuildContext context) async {
-    final DateTime? pickedDate = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2010),
-      lastDate: DateTime.now(),
-    );
+Future<void> _showDatePicker(BuildContext context) async {
+  final DateTime? pickedDate = await showDatePicker(
+    context: context,
+    initialDate: DateTime.now(),
+    firstDate: DateTime(2010),
+    lastDate: DateTime.now(),
+  );
 
-    if (pickedDate != null && mounted) {
-      setState(() {
-        _dateController.text = _formattedDate(pickedDate);
-        _notificationFuture = fetchNotifications(_formattedDate(pickedDate));
-      });
-    }
+  print('Picked Date: $pickedDate'); // เพิ่มบรรทัดนี้
+
+  if (pickedDate != null && mounted) {
+    setState(() {
+      _dateController.text = _formattedDate(pickedDate);
+      _notificationFuture = fetchNotifications(_formattedDate(pickedDate));
+    });
   }
+}
 
   String _formattedDate(DateTime date) {
     return "${date.year}-${_twoDigits(date.month)}-${_twoDigits(date.day)}";

@@ -3,14 +3,15 @@ import 'dart:ffi';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
-import 'package:monitoringsystem/Service/local_notifcation.dart';
-import 'package:monitoringsystem/home.dart';
-import 'package:monitoringsystem/user.dart';
+import 'package:Monitoring/Service/local_notifcation.dart';
+import 'package:Monitoring/home.dart';
+import 'package:Monitoring/user.dart';
 import 'Service/fetch_user_profile.dart';
 import 'Service/line.dart';
 import 'login.dart';
 import 'register.dart';
 import 'check_login.dart';
+import 'screen/settings.dart';
 import 'package:flutter_background_service_android/flutter_background_service_android.dart';
 
 void main() async {
@@ -30,7 +31,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       home: check_login(),
       routes: {
-        'register': (context) => register(),
+      
         'home': (context) => homepage(),
         'login': (context) => login(),
       },
@@ -65,12 +66,12 @@ void onStart(ServiceInstance service) async {
     service.stopSelf();
   });
 
-  Timer.periodic(const Duration(seconds: 5), (timer) async {
-    // Wait for SharedPreferences to update
-    //await User.getsignin();
-     await checkAndSendLineNotification();
+Timer.periodic(const Duration(seconds: 5), (timer) async {
+
+    // เรียกใช้ฟังก์ชัน checkAndSendLineNotification
+    await checkAndSendLineNotification();
   
-  });
+});
 }
 
 

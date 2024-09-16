@@ -4,77 +4,70 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:http/http.dart' as http;
-import 'package:monitoringsystem/main.dart';
+import 'package:Monitoring/main.dart';
 
 import '../Service/fetch_user_profile.dart';
-import 'package:monitoringsystem/user.dart';
+import 'package:Monitoring/user.dart';
 
-class pro_file extends StatefulWidget {
+class pro_file  extends StatefulWidget {
   final String email;
 
-  const pro_file({Key? key, required this.email}) : super(key: key);
+  const pro_file ({Key? key, required this.email}) : super(key: key);
 
   @override
-  _pro_fileState createState() => _pro_fileState();
+  _ProfilePageState createState() => _ProfilePageState();
 }
 
-class _pro_fileState extends State<pro_file> {
+class _ProfilePageState extends State<pro_file > {
   @override
   void initState() {
     super.initState();
-    // เรียกใช้งานฟังก์ชัน fetchUserProfile() เมื่อหน้า Profile ถูกโหลด
     fetchUserProfile();
     User.checkLoginStatus();
-
-  }
-  @override
-  void didChangeDependencies(){
-    super.didChangeDependencies();
-    fetchUserProfile();
   }
 
+  Future<void> updateUserProfile(String field, String value) async {
+    Map<String, String?> settings = await User.getSettings();
+    String? ip = settings['ip'];
+    String? port = settings['port'];
+    final response = await http.post(
+      Uri.parse('http://$ip:$port/update_user'),
+      body: {
+        'email': User.email,
+        'field': field,
+        'value': value,
+      },
+    );
 
- Future<void> updateUserProfile(String field, String value) async {
-     Map<String, String?> settings = await User.getSettings();
-  String? ip = settings['ip'];
-  String? port = settings['port'];
-  final response = await http.post(
-    Uri.parse('http://$ip:$port/update_user'),
-    body: {
-      'email': User.email,
-      'field': field,
-      'value': value,
-    },
-  );
-
-  if (response.statusCode == 200) {
-    final responseBody = json.decode(response.body);
-    if (responseBody['status'] == 'success') {
-      setState(() {
-        switch (field) {
-          case 'firstname':
-            User.firstName = value;
-            break;
-          case 'lastname':
-            User.lastName = value;
-            break;
-          case 'phone':
-            User.phone = value;
-            break;
-          case 'description':
-            User.description = value;
-            break;
-        }
-      });
+    if (response.statusCode == 200) {
+      final responseBody = json.decode(response.body);
+      if (responseBody['status'] == 'success') {
+        setState(() {
+          switch (field) {
+            case 'firstname':
+              User.firstName = value;
+              break;
+            case 'lastname':
+              User.lastName = value;
+              break;
+            case 'phone':
+              User.phone = value;
+              break;
+            case 'description':
+              User.description = value;
+              break;
+            case 'token':
+              User.token = value;
+              break;
+          }
+        });
+      } else {
+        log('Error updating profile: ${responseBody['message']}');
+      }
     } else {
-      // Handle error
-      log('Error updating profile: ${responseBody['message']}');
+      log('Error updating profile: ${response.statusCode}');
     }
-  } else {
-    // Handle error
-    log('Error updating profile: ${response.statusCode}');
   }
-}
 
   Future<void> _showEditDialog(String field, String currentValue) async {
     TextEditingController controller =
@@ -116,126 +109,90 @@ class _pro_fileState extends State<pro_file> {
     );
   }
 
+  Widget buildProfileCard(String title, String value, String field, IconData icon) {
+    return Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      elevation: 4,
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(16),
+        leading: Icon(icon, color: Colors.blueAccent),
+        title: Text(
+          title,
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(value),
+        trailing: IconButton(
+          icon: Icon(Icons.edit, color: Colors.blueAccent),
+          onPressed: () => _showEditDialog(field, value),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('User Profile'),
         automaticallyImplyLeading: false,
+        backgroundColor: Colors.blueAccent,
       ),
       body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Card(
-                elevation: 4,
-                child: ListTile(
-                  title: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'First Name',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.edit),
-                        onPressed: () =>
-                            _showEditDialog('firstname', User.firstName),
-                      ),
-                    ],
-                  ),
-                  subtitle: Text(User.firstName),
-                ),
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            buildProfileCard(
+              'First Name',
+              User.firstName,
+              'firstname',
+              Icons.person,
+            ),
+            buildProfileCard(
+              'Last Name',
+              User.lastName,
+              'lastname',
+              Icons.person_outline,
+            ),
+            buildProfileCard(
+              'Phone',
+              User.phone,
+              'phone',
+              Icons.phone,
+            ),
+            buildProfileCard(
+              'Description',
+              User.description,
+              'description',
+              Icons.description,
+            ),
+            buildProfileCard(
+              'TokenLine',
+              User.token,
+              'token',
+              Icons.token,
+            ),
+            // No edit button for email
+            Card(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-              Divider(),
-              Card(
-                elevation: 4,
-                child: ListTile(
-                  title: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Last Name',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.edit),
-                        onPressed: () =>
-                            _showEditDialog('lastname', User.lastName),
-                      ),
-                    ],
-                  ),
-                  subtitle: Text(User.lastName),
+              elevation: 4,
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              child: ListTile(
+                contentPadding: const EdgeInsets.all(16),
+                leading: Icon(Icons.email, color: Colors.blueAccent),
+                title: Text(
+                  'Email',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
+                subtitle: Text(User.email),
               ),
-              Divider(),
-              Card(
-                elevation: 4,
-                child: ListTile(
-                  title: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Email',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                      // No edit button for email
-                    ],
-                  ),
-                  subtitle: Text(User.email),
-                ),
-              ),
-              Divider(),
-              Card(
-                elevation: 4,
-                child: ListTile(
-                  title: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Phone',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.edit),
-                        onPressed: () => _showEditDialog('phone', User.phone),
-                      ),
-                    ],
-                  ),
-                  subtitle: Text(User.phone),
-                ),
-              ),
-              Divider(),
-              Card(
-                elevation: 4,
-                child: ListTile(
-                  title: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Description',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.edit),
-                        onPressed: () =>
-                            _showEditDialog('description', User.description),
-                      ),
-                    ],
-                  ),
-                  subtitle: Text(User.description),
-                ),
-              ),
-              
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

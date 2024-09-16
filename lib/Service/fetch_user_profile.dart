@@ -1,15 +1,19 @@
+
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:monitoringsystem/user.dart';
+import 'package:Monitoring/user.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 
 
 Future<void> fetchUserProfile() async {
+    Map<String, String?> settings = await User.getSettings();
+  String? ip = settings['ip'];
+  String? port = settings['port'];
   
   // URL ของ API ที่ดึงข้อมูลผู้ใช้
-  String url = "http://192.168.1.104:3001/data/users";
+  String url = "http://$ip:$port/data/users";
   
   try {
     // เรียกข้อมูลจาก API
@@ -34,6 +38,7 @@ Future<void> fetchUserProfile() async {
             User.email = item['email'] as String;
             User.phone = item['phone'] as String;
             User.description = item['description'] as String;
+            User.token = item['token'] as String;
             userFound = true;
             break; // หยุดวนลูปเมื่อพบผู้ใช้
           }

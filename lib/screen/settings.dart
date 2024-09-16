@@ -3,48 +3,64 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
-import 'package:monitoringsystem/check_login.dart';
-import 'package:monitoringsystem/user.dart';
-import 'package:monitoringsystem/home.dart';
+import 'package:Monitoring/check_login.dart';
+import 'package:Monitoring/user.dart';
+import 'package:Monitoring/home.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 
+import '../Service/line.dart';
 import '../main.dart';
 
-class set_ting extends StatefulWidget {
-  const set_ting({Key? key}) : super(key: key);
+class set_ting  extends StatefulWidget {
+  const set_ting ({Key? key}) : super(key: key);
 
   @override
-  State<set_ting> createState() => _set_tingState();
+  State<set_ting > createState() => _SetTingState();
 }
 
-class _set_tingState extends State<set_ting> {
-  bool _notificationsEnabled = true; // ค่าเริ่มต้น
+class _SetTingState extends State<set_ting > {
+  bool _notificationsEnabled = true;
   List<dynamic> _attackGroups = [];
-  Timer? _updateTimer; // ใช้เพื่อเก็บ Timer
+  Timer? _updateTimer;
+  String? _lineNotifyToken;
+  List<dynamic> _tokens = [];
+  List<String> _selectedEmail = [];
+  late Future<bool?> _uroleFuture;
+    bool isAdmin = true; // Variable to store the admin status
 
-@override
-void dispose(){
-  _updateTimer?.cancel(); // ยกเลิก Timer เมื่อ State ถูกทำลาย
-  super.dispose();
-}
 
-  void _startHourlyUpdate() {
-    _updateTimer = Timer.periodic(Duration(hours: 1), (timer) {
-      // เรียกฟังก์ชันที่ต้องการอัปเดต threshold
-      //_updateThreshold();
-    });
+
+  @override
+  void dispose() {
+    _updateTimer?.cancel();
+    super.dispose();
   }
-
 
   @override
   void initState() {
     super.initState();
     _loadNotificationPreference();
     _fetchAttackGroups();
+    _loadEmails();
+    _uroleFuture = User.geturole();
+        _checkIfAdmin(); // Check admin status
+
+
+  }
+   Future<void> _checkIfAdmin() async {
+    bool? role = await User.geturole();
+    setState(() {
+      isAdmin = role ?? true; // Default to false if not set
+    });
   }
 
-  // โหลดค่าการตั้งค่าการแจ้งเตือนจาก SharedPreferences
+  void _startHourlyUpdate() {
+    _updateTimer = Timer.periodic(Duration(hours: 1), (timer) {
+      // Add logic for periodic updates if needed
+    });
+  }
+
   Future<void> _loadNotificationPreference() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -52,7 +68,11 @@ void dispose(){
     });
   }
 
-  // อัปเดตการตั้งค่าการแจ้งเตือนใน SharedPreferences
+  Future<void> updateTokens(List<String> newTokens) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('lineNotifyTokens', newTokens);
+  }
+
   Future<void> _updateNotificationPreference(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -60,16 +80,29 @@ void dispose(){
       prefs.setBool('notificationsEnabled', enabled);
     });
   }
+
+  Future<void> _fetchTokens() async {
+    final response = await http
+        .get(Uri.parse('http://192.168.1.104:3001/tokenapi/fetch_tokens'));
+
+    if (response.statusCode == 200) {
+      setState(() {
+        _tokens = json.decode(response.body)['tokens'];
+      });
+    } else {
+      print('Failed to load tokens');
+    }
+  }
+
   Future<void> _fetchAttackGroups() async {
-       Map<String, String?> settings = await User.getSettings();
-  String? ip = settings['ip'];
-  String? port = settings['port'];
+    Map<String, String?> settings = await User.getSettings();
+    String? ip = settings['ip'];
+    String? port = settings['port'];
     final response =
         await http.get(Uri.parse('http://$ip:$port/setThreshold/fetch_group'));
     if (response.statusCode == 200) {
       setState(() {
         _attackGroups = json.decode(response.body)['AttackGroup'];
-        
       });
     } else {
       print('Failed to load attack groups');
@@ -77,9 +110,9 @@ void dispose(){
   }
 
   Future<void> _updateThreshold(int id, String name, double threshold) async {
-      Map<String, String?> settings = await User.getSettings();
-  String? ip = settings['ip'];
-  String? port = settings['port'];
+    Map<String, String?> settings = await User.getSettings();
+    String? ip = settings['ip'];
+    String? port = settings['port'];
     final response = await http.put(
       Uri.parse('http://$ip:$port/setThreshold/update_threshold/$id'),
       headers: <String, String>{
@@ -98,6 +131,144 @@ void dispose(){
       print('Failed to update threshold');
       print('Response: ${response.body}');
     }
+  }
+
+  Future<void> _showTokenDialog(BuildContext context) async {
+       Map<String, String?> settings = await User.getSettings();
+  String? ip = settings['ip'];
+  String? port = settings['port'];
+  if (ip == null || ip.isEmpty || port == null || port.isEmpty) {
+    ScaffoldMessenger.of(context as BuildContext).showSnackBar(
+      SnackBar(content: Text('Please set IP and Port before signing in')),
+    );
+    return;
+  }
+    final response = await http
+        .get(Uri.parse('http://$ip:$port/tokenapi/fetch_tokens'));
+
+    if (response.statusCode == 200) {
+      final List<dynamic> tokens = json.decode(response.body)['tokens'];
+
+      showDialog<void>(
+        context: context,
+        builder: (BuildContext context) {
+          return StatefulBuilder(
+            builder: (BuildContext context, StateSetter setState) {
+              return AlertDialog(
+                title: const Text('Email with Line Notify Token'),
+                content: SizedBox(
+                  width: double.maxFinite,
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: tokens.length,
+                    itemBuilder: (BuildContext context, int index) {
+                      final email = tokens[index]['email'] as String;
+                      final token = tokens[index]['token'];
+                      final isTokenAdded = _selectedEmail.contains(email);
+
+                      return ListTile(
+                        title: Text(email),
+                        trailing: isTokenAdded
+                            ? IconButton(
+                                icon:
+                                    const Icon(Icons.delete, color: Colors.red),
+                                onPressed: () async {
+                                  final prefs =
+                                      await SharedPreferences.getInstance();
+                                  List<String> savedTokens =
+                                      prefs.getStringList('lineNotifyTokens') ??
+                                          [];
+                                  List<String> savedEmails =
+                                      prefs.getStringList('lineNotifyEmails') ??
+                                          [];
+
+                                  savedTokens.remove(token);
+                                  savedEmails.remove(email);
+
+                                  await prefs.setStringList(
+                                      'lineNotifyTokens', savedTokens);
+                                  await prefs.setStringList(
+                                      'lineNotifyEmails', savedEmails);
+
+                                  setState(() {
+                                    _selectedEmail = savedEmails;
+                                  });
+                                },
+                              )
+                            : IconButton(
+                                icon: const Icon(Icons.add),
+                                onPressed: () async {
+                                  if (!isTokenAdded) {
+                                    final prefs =
+                                        await SharedPreferences.getInstance();
+                                    List<String> savedTokens =
+                                        prefs.getStringList(
+                                                'lineNotifyTokens') ??
+                                            [];
+                                    List<String> savedEmails =
+                                        prefs.getStringList(
+                                                'lineNotifyEmails') ??
+                                            [];
+
+                                    savedTokens.add(token);
+                                    savedEmails.add(email);
+
+                                    await prefs.setStringList(
+                                        'lineNotifyTokens', savedTokens);
+                                    await prefs.setStringList(
+                                        'lineNotifyEmails', savedEmails);
+
+                                    setState(() {
+                                      _selectedEmail = savedEmails;
+                                    });
+                                  }
+                                },
+                              ),
+                      );
+                    },
+                  ),
+                ),
+                actions: <Widget>[
+                  TextButton(
+                    child: const Text('Close'),
+                    onPressed: () async {
+                      final prefs = await SharedPreferences.getInstance();
+                      List<String> savedTokens =
+                          prefs.getStringList('lineNotifyTokens') ?? [];
+                      List<String> savedEmails =
+                          prefs.getStringList('lineNotifyEmails') ?? [];
+
+                      print('Stored Tokens: $savedTokens');
+                      print('Stored Emails: $savedEmails');
+                      await _loadEmails();
+                      sendtocheckAnd();
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+    } else {
+      print('Failed to load tokens');
+    }
+  }
+
+  Future<void> _loadEmails() async {
+    final prefs = await SharedPreferences.getInstance();
+    final List<String>? emails = prefs.getStringList('lineNotifyEmails');
+    setState(() {
+      _selectedEmail = emails ?? [];
+    });
+  } 
+
+  Future<void> logout() async {
+    await User.setsigin(false);
+    await User.setEmail('');
+    FlutterBackgroundService().invoke('stopService');
+    Navigator.pushNamed(context, 'login');
   }
 
   Future<void> _showEditDialog(BuildContext context, dynamic group) async {
@@ -139,79 +310,122 @@ void dispose(){
     );
   }
 
-  Future<void> logout() async {
-    await User.setsigin(false);
-    await User.setEmail('');
-    FlutterBackgroundService().invoke('stopService');
-    Navigator.pushNamed(context, 'login');
-  }
-
-  @override
+   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      //backgroundColor: Color(0xFFF5F5F5),
       appBar: AppBar(
         backgroundColor: Colors.blue,
         title: Text("Settings"),
-      ),
-      body: ListView(
-        padding: EdgeInsets.all(8.0),
-        children: [
-          SwitchListTile(
-            title: Text("Enable Notifications"),
-            value: _notificationsEnabled,
-            onChanged: (bool value) async {
-              _updateNotificationPreference(value);
-              if (value) {
-                await initializeService();
-                print("เปิดการแจ้งเตือน");
-              } else {
-                FlutterBackgroundService().invoke('stopService');
-                print("ปิดการแจ้งเตือน");
-              }
+        automaticallyImplyLeading: false,
+        actions: <Widget>[
+          IconButton(
+            icon: Icon(Icons.exit_to_app, color: Colors.white),
+            onPressed: () async {
+              await logout();
             },
           ),
-          SizedBox(height: 20),
-          Text('Attack Groups',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          ..._attackGroups
-              .map((group) => ListTile(
-                    title: Row(
-                      children: [
-                        Expanded(
-                          child: Text(group['name']),
-                        ),
-                      ],
-                    ),
-                    subtitle: Text('Threshold: ${group['Threshold']}'),
-                    trailing: IconButton(
-                      icon: Icon(Icons.edit),
-                      onPressed: () {
-                        _showEditDialog(
-                            context, group); // เปิด popup เพื่อแก้ไขข้อมูล
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: ListView(
+          children: [
+            Card(
+              elevation: 4,
+              child: Column(
+                children: [
+                  ListTile(
+                    title: Text("Enable Notifications"),
+                    trailing: Switch(
+                      value: _notificationsEnabled,
+                      onChanged: (bool value) async {
+                        _updateNotificationPreference(value);
+                        if (value) {
+                          await initializeService();
+                          print("Notifications enabled");
+                        } else {
+                          FlutterBackgroundService().invoke('stopService');
+                          print("Notifications disabled");
+                        }
                       },
                     ),
-                  ))
-              .toList(),
-          const Divider(),
-          SizedBox(
-            height: 280,
-          ),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: 20),
+            Card(
+              elevation: 4,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Attack Groups',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    SizedBox(height: 10),
+                    ..._attackGroups.map((group) => ListTile(
+                      contentPadding: EdgeInsets.symmetric(vertical: 8.0),
+                      title: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              group['name'],
+                              style: TextStyle(fontSize: 16),
+                            ),
+                          ),
+                        ],
+                      ),
+                      subtitle: Text(
+                        'Threshold: ${group['Threshold']}',
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                      ),
+                      trailing: IconButton(
+                        icon: Icon(Icons.edit),
+                        onPressed: () {
+                          _showEditDialog(context, group);
+                        },
+                      ),
+                    )).toList(),
+                  ],
                 ),
               ),
-              onPressed: () async {
-                logout();
-              },
-              child: Text('Sign Out'),
             ),
-          ),
-        ],
+            SizedBox(height: 20),
+            if (isAdmin) // Only show if the user is an admin
+              Card(
+                elevation: 4,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Line Notify Token',
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      ),
+                      SizedBox(height: 10),
+                      Text(
+                        _selectedEmail.isNotEmpty
+                            ? _selectedEmail.join(', ')
+                            : 'No email set',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                      SizedBox(height: 10),
+                      ElevatedButton(
+                        onPressed: () {
+                          _showTokenDialog(context);
+                        },
+                        child: Text('Manage Notification Line'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
