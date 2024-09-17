@@ -283,194 +283,213 @@ String _formatRemainingTime() {
   int seconds = _coolDownRemaining % 60;
   return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
 }
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    backgroundColor: Colors.white,
+    appBar: AppBar(
       backgroundColor: Colors.white,
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: SingleChildScrollView(
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      IconButton(
-                        icon: Icon(Icons.settings, size: 30.0, color: Colors.blue),
-                        onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (BuildContext context) {
-                              String? ip;
-                              String? port;
+      elevation: 0,
+      actions: [
+        IconButton(
+          icon: Icon(Icons.settings, size: 30.0, color: Colors.blue),
+          onPressed: () {
+            showDialog(
+              context: context,
+              builder: (BuildContext context) {
+                String? ip;
+                String? port;
 
-                              return AlertDialog(
-                                title: Text('Settings'),
-                                content: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: <Widget>[
-                                    TextFormField(
-                                      decoration: InputDecoration(
-                                        labelText: 'IP Address',
-                                        hintText: '0.0.0.0',
-                                        border: OutlineInputBorder(),
-                                      ),
-                                      onChanged: (value) {
-                                        ip = value;
-                                      },
-                                    ),
-                                    SizedBox(height: 10),
-                                    TextFormField(
-                                      decoration: InputDecoration(
-                                        labelText: 'Port',
-                                        hintText: '0000',
-                                        border: OutlineInputBorder(),
-                                      ),
-                                      onChanged: (value) {
-                                        port = value;
-                                      },
-                                    ),
-                                  ],
-                                ),
-                                actions: <Widget>[
-                                  TextButton(
-                                    child: Text('Cancel'),
-                                    onPressed: () {
-                                      Navigator.of(context).pop();
-                                    },
-                                  ),
-                                  ElevatedButton(
-                                    child: Text('Save'),
-                                    onPressed: () async {
-                                      if (ip != null && port != null) {
-                                        await User.saveSettings(ip!, port!);
-                                      }
-                                      Navigator.of(context).pop();
-                                    },
-                                  ),
-                                ],
-                              );
-                            },
-                          );
+                return AlertDialog(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(20.0)),
+                  ),
+                  title: Text('Settings', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      TextFormField(
+                        decoration: InputDecoration(
+                          labelText: 'IP Address',
+                          hintText: '0.0.0.0',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        onChanged: (value) {
+                          ip = value;
+                        },
+                      ),
+                      SizedBox(height: 16),
+                      TextFormField(
+                        decoration: InputDecoration(
+                          labelText: 'Port',
+                          hintText: '0000',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        onChanged: (value) {
+                          port = value;
                         },
                       ),
                     ],
                   ),
-                  Text(
-                    'Welcome!',
-                    style: TextStyle(
-                      fontSize: 36,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blueAccent,
+                  actions: <Widget>[
+                    TextButton(
+                      child: Text('Cancel'),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
                     ),
-                  ),
-                  SizedBox(height: 20),
-                  Text(
-                    'Brute Force Attack Monitoring System',
-                    style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-                  ),
-                  Text(
-                    'from Web Access Log Files.',
-                    style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-                  ),
-                  SizedBox(height: 30),
-                  TextFormField(
-                    controller: _emailController,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(),
-                      labelText: 'Email',
-                      prefixIcon: Icon(Icons.email),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-                      filled: true,
-                      fillColor: Colors.grey[200],
+                    ElevatedButton(
+                      child: Text('Save'),
+                      onPressed: () async {
+                        if (ip != null && port != null) {
+                          await User.saveSettings(ip!, port!);
+                        }
+                        Navigator.of(context).pop();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        primary: Colors.blueAccent,
+                      ),
                     ),
-                    validator: (value) {
-                      if (value!.isEmpty) {
-                        return 'Please enter your Email';
-                      }
-                      bool emailValid = RegExp(
-                              r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
-                          .hasMatch(value);
-                      if (!emailValid) {
-                        return 'Please enter a valid Email';
-                      }
-                      return null;
-                    },
-                  ),
-                  SizedBox(height: 20),
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: true,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(),
-                      labelText: 'Password',
-                      prefixIcon: Icon(Icons.lock),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-                      filled: true,
-                      fillColor: Colors.grey[200],
-                    ),
-                    validator: (value) {
-                      if (value!.isEmpty) {
-                        return 'Please enter your password';
-                      }
-                      return null;
-                    },
-                  ),
-             SizedBox(height: 20),
-ElevatedButton(
-  style: ElevatedButton.styleFrom(
-    primary: Colors.blueAccent,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(15),
-    ),
-    padding: EdgeInsets.symmetric(vertical: 15, horizontal: 100),
-    elevation: 5,
-    shadowColor: Colors.black.withOpacity(0.3),
-  ),
-  onPressed: () async {
-    if (_formKey.currentState!.validate()) {
-      bool network = await _checkNetwork();
-      if (network) {
-        setState(() {
-          _isLoading = true;
-        });
-        await _signIn();
-        setState(() {
-          _isLoading = false;
-        });
-
-        // แสดงป๊อปอัพเพื่อกรอก PIN code
-      // _showOtpDialog();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('No internet connection')),
-        );
-      }
-    }
-  },
-  child: _isLoading
-      ? CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-        )
-      : Text(
-          'Sign In',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
+                  ],
+                );
+              },
+            );
+          },
         ),
-),
-                ],
-              )
-            ),
+      ],
+    ),
+    body: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 5.0),
+      child: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisAlignment: MainAxisAlignment.start, // เพิ่มการจัดเรียงให้อยู่ด้านบน
+            children: [
+              SizedBox(height: 50), // ลดระยะห่างจากด้านบนสุด
+              Text(
+                'Welcome!',
+                style: TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blueAccent,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 8), // ลดระยะห่างระหว่างองค์ประกอบ
+              Text(
+                'Brute Force Attack Monitoring System',
+                style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 8),
+              Text(
+                'from Web Access Log Files.',
+                style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 30), // ลดขนาดของระยะห่างเพิ่มเติม
+              TextFormField(
+                controller: _emailController,
+                decoration: InputDecoration(
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  labelText: 'Email',
+                  prefixIcon: Icon(Icons.email),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                  filled: true,
+                  fillColor: Colors.grey[200],
+                ),
+                validator: (value) {
+                  if (value!.isEmpty) {
+                    return 'Please enter your Email';
+                  }
+                  bool emailValid = RegExp(
+                          r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
+                      .hasMatch(value);
+                  if (!emailValid) {
+                    return 'Please enter a valid Email';
+                  }
+                  return null;
+                },
+              ),
+              SizedBox(height: 15), // ลดระยะห่างเพิ่มเติม
+              TextFormField(
+                controller: _passwordController,
+                obscureText: true,
+                decoration: InputDecoration(
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  labelText: 'Password',
+                  prefixIcon: Icon(Icons.lock),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                  filled: true,
+                  fillColor: Colors.grey[200],
+                ),
+                validator: (value) {
+                  if (value!.isEmpty) {
+                    return 'Please enter your password';
+                  }
+                  return null;
+                },
+              ),
+              SizedBox(height: 50), // ลดขนาดของช่องว่าง
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  primary: Colors.blueAccent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  padding: EdgeInsets.symmetric(vertical: 15),
+                  elevation: 5,
+                  shadowColor: Colors.black.withOpacity(0.3),
+                ),
+                onPressed: () async {
+                  if (_formKey.currentState!.validate()) {
+                    bool network = await _checkNetwork();
+                    if (network) {
+                      setState(() {
+                        _isLoading = true;
+                      });
+                      await _signIn();
+                      setState(() {
+                        _isLoading = false;
+                      });
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('No internet connection')),
+                      );
+                    }
+                  }
+                },
+                child: _isLoading
+                    ? CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      )
+                    : Text(
+                        'Sign In',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+              ),
+            ],
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
