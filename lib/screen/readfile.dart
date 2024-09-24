@@ -39,12 +39,6 @@ class _FileContentPageState extends State<FileContentPage> {
        Map<String, String?> settings = await User.getSettings();
   String? ip = settings['ip'];
   String? port = settings['port'];
-  if (ip == null || ip.isEmpty || port == null || port.isEmpty) {
-    ScaffoldMessenger.of(context as BuildContext).showSnackBar(
-      SnackBar(content: Text('Please set IP and Port before signing in')),
-    );
-    return;
-  }
     final encodedFilePath = Uri.encodeComponent(widget.filePath);
     var url = Uri.parse(
         "http://$ip:$port/readfile/file-content/$encodedFilePath");

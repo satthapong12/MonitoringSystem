@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'dart:async';
@@ -6,6 +8,7 @@ import 'package:Monitoring/Service/local_notifcation.dart';
 import 'package:Monitoring/home.dart';
 import 'dart:convert';
 import 'package:connectivity/connectivity.dart';
+import 'package:slider_captcha/slider_captcha.dart';
 import 'main.dart';
 import 'user.dart';
 import 'Service/fetch_user_profile.dart';
@@ -20,29 +23,20 @@ class login extends StatefulWidget {
 class _loginState extends State<login> {
   final _formKey = GlobalKey<FormState>();
 
-  bool? checklogin = false;
+  bool? checklogin = false; 
+  final SliderController _sliderController = SliderController(); // เพิ่ม controller ของ SliderCaptcha
+  bool _isSliderVerified = false; // ตรวจสอบว่า slider ผ่านหรือไม่
   String _message = '';
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _uroleController = TextEditingController();
-  final TextEditingController _otpController = TextEditingController();
   bool _isLoading = false;
-
-int _failedAttempts = 0;
-final int _maxAttempts = 3;
-bool _isCoolingDown = false;
-Timer? _coolDownTimer;
-int _coolDownDuration = 5 * 60; // 5 นาทีเป็นวินาที
-int _coolDownRemaining = 0; // ใช้ติดตามเวลาที่เหลือในช่วง coolDown
 
 Future<void> _signIn() async {
   Map<String, String?> settings = await User.getSettings();
   String? ip = settings['ip'];
   String? port = settings['port'];
   if (ip == null || ip.isEmpty || port == null || port.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Please set IP and Port before signing in')),
-    );
+    await showPopup('Please set IP and Port before signing in');
     return;
   }
 
@@ -56,440 +50,346 @@ Future<void> _signIn() async {
 
     if (response.statusCode == 200) {
       var data = json.decode(response.body);
-      if (data['urole'] == "admin") {
-        await User.seturole(true);
+      if (data['message'] == "Login successful.") {
+        // ข้อมูลล็อกอินถูกต้อง ให้แสดง SliderCaptcha
+        await _showSliderCaptchaDialog();
+
+        // หลังจากยืนยัน slider
+        if (_isSliderVerified) {
+          if (data['urole'] == "admin") {
+            await User.seturole(true);
+          } else {
+            await User.seturole(false);
+          }
+          await User.setsigin(true);
+          await User.setEmail(_emailController.text);
+          await fetchUserProfile();
+          await initializeService();
+          await User.fetchAndPrintSettings();
+          Navigator.pushNamed(context, 'home');
+        } else {
+         await showPopup('Please verify the slider first');
+        }
       } else {
-        await User.seturole(false);
-      }
-      if (data['message'] == "Login Successful. OTP sent to your email.") {
-        // แสดง dialog หรือหน้าจอให้ผู้ใช้กรอก OTP
-        _showOtpDialog();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Invalid email or password')),
-        );
+       await showPopup('Server Error: ${response.statusCode}');
       }
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Server Error: ${response.statusCode}')),
-      );
+      await showPopup('Invalid email or password');
+
     }
   } catch (e) {
     print('Error: $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('An unexpected error occurred')),
-    );
+    await showPopup('Please set IP and Port before signing in');
   }
 }
 
-  Future<bool> _checkNetwork() async {
-    var connectivityResult = await (Connectivity().checkConnectivity());
-    return connectivityResult != ConnectivityResult.none;
-  }
-void _showOtpDialog() {
-  showDialog(
+Future<bool> _showSliderCaptchaDialog() async {
+     // ลิสต์ของชื่อไฟล์ภาพ
+    List<String> images = [
+      "assets/mooto1.jpeg",
+      "assets/mootoo2.jpeg",
+      "assets/mootoo3.jpeg",
+      // เพิ่มชื่อไฟล์ภาพอื่นๆ ที่ต้องการ
+    ];
+
+    // เลือกภาพแบบสุ่ม
+    String randomImage = images[Random().nextInt(images.length)];
+  bool isVerified = false;
+
+  await showDialog(
     context: context,
+  
     builder: (BuildContext context) {
-      return Dialog(
+      
+      return AlertDialog(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16.0),
+          borderRadius: BorderRadius.circular(20.0),
         ),
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16.0),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                spreadRadius: 5,
-                blurRadius: 7,
-                offset: Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.lock_outline,
-                  size: 60,
-                  color: Colors.blueGrey,
-                ),
-                SizedBox(height: 16),
-                Text(
-                  'Enter OTP',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blueGrey[800],
-                  ),
-                ),
-                SizedBox(height: 16),
-                if (_isCoolingDown) // แสดงเวลาที่เหลือหากอยู่ในช่วง coolDown
-                  Text(
-                    'Cooldown active. Time remaining: ${_formatRemainingTime()}',
-                    style: TextStyle(color: Colors.red, fontSize: 16),
-                  )
-                else // แสดงจำนวนครั้งที่กรอกผิด
-                  Text(
-                    'Invalid OTP attempts left: ${_maxAttempts - _failedAttempts}',
-                    style: TextStyle(color: Colors.red, fontSize: 16),
-                  ),
-                TextField(
-                  controller: _otpController,
-                  decoration: InputDecoration(
-                    hintText: 'Enter OTP sent to your email',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10.0),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Colors.blue, width: 2.0),
-                      borderRadius: BorderRadius.circular(10.0),
-                    ),
-                    contentPadding: EdgeInsets.symmetric(vertical: 15.0, horizontal: 10.0),
-                  ),
-                  keyboardType: TextInputType.number,
-                  obscureText: true,
-                ),
-                SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: <Widget>[
-                    TextButton(
-                      child: Text(
-                        'Cancel',
-                        style: TextStyle(color: Colors.red),
-                      ),
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                      },
-                    ),
-                    ElevatedButton(
-                      child: Text('Verify'),
-                      style: ElevatedButton.styleFrom(
-                        primary: Colors.blue,
-                        onPrimary: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10.0),
-                        ),
-                      ),
-                      onPressed: () async {
-                        String otp = _otpController.text;
-                        if (await _verifyOtp(otp)) {
-                          await User.setsigin(true);
-                          await User.setEmail(_emailController.text);
-                          await fetchUserProfile();
-                          await initializeService();
-                          await User.fetchAndPrintSettings();
-                          Navigator.pushNamed(context, 'home');
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Invalid OTP')),
-                          );
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              ],
+        content: Container(
+          width: 550, // กำหนดความกว้างของ dialog
+          height: 250, // กำหนดความสูงของ dialog
+          child: SliderCaptcha(
+            controller: _sliderController,
+            image: Image.asset(
+              randomImage,
+              fit: BoxFit.contain,
             ),
+            onConfirm: (bool value) {
+              setState(() {
+                _isSliderVerified = value;
+                isVerified = value; // บันทึกผลการยืนยัน
+              });
+              Navigator.of(context).pop(); // ปิด dialog เมื่อยืนยัน
+              return Future.value();
+            },
           ),
         ),
       );
     },
   );
+
+  return isVerified; // คืนค่าผลการยืนยัน
 }
-
-
-
-Future<bool> _verifyOtp(String otp) async {
-
-    if (_isCoolingDown) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('You are in cooldown period. Please try again later.')),
-    );
-    return false;
-  }
-
-  Map<String, String?> settings = await User.getSettings();
-  String? ip = settings['ip'];
-  String? port = settings['port'];
-
-
-   String url = "http://$ip:$port/login/verify";
-
-  try {
-    final response = await http.post(Uri.parse(url), body: {
-      'email': _emailController.text,
-      'otp': otp,
-    });
-
-    if (response.statusCode == 200) {
-      var data = json.decode(response.body);
-      if (data['message'] == 'OTP verified successfully') {
-        _failedAttempts = 0; // Reset failed attempts on successful OTP verification
-        return true;
-      } else {
-        setState(() {
-                  _failedAttempts++;
-
-        });
-        if (_failedAttempts >= _maxAttempts) {
-          _startCoolDown();
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Invalid OTP')),
-        );
-        return false;
-      }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Server Error: ${response.statusCode}')),
+Future<void> showPopup(String message) async {
+  return showDialog<void>(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20.0),
+        ),
+        title: Row(
+          children: [
+            Icon(Icons.notification_important, color: Colors.blue),
+            SizedBox(width: 8),
+            Text('เกิดข้อผิดพลาด', style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Text(
+            message,
+            style: TextStyle(fontSize: 16),
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+            child: Text(
+              'OK',
+              style: TextStyle(color: Colors.blue),
+            ),
+          ),
+        ],
       );
-      return false;
-    }
-  } catch (e) {
-    print('Error: $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('An unexpected error occurred')),
-    );
-    return false;
-  }
+    },
+  );
 }
-void _startCoolDown() {
-  _isCoolingDown = true;
-  _coolDownRemaining = _coolDownDuration; // ตั้งเวลาของ coolDown
-  _coolDownTimer?.cancel();
-  _coolDownTimer = Timer.periodic(Duration(seconds: 1), (timer) {
-    if (_coolDownRemaining > 0) {
-      setState(() {
-        _coolDownRemaining--;
-      });
-    } else {
-      timer.cancel();
-      setState(() {
-        _isCoolingDown = false;
-        _failedAttempts = 0;
-      });
-    }
-  });
-}
-String _formatRemainingTime() {
-  int minutes = _coolDownRemaining ~/ 60;
-  int seconds = _coolDownRemaining % 60;
-  return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-}
-@override
-Widget build(BuildContext context) {
-  return Scaffold(
-    backgroundColor: Colors.white,
-    appBar: AppBar(
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
       backgroundColor: Colors.white,
-      elevation: 0,
-      actions: [
-        IconButton(
-          icon: Icon(Icons.settings, size: 30.0, color: Colors.blue),
-          onPressed: () {
-            showDialog(
-              context: context,
-              builder: (BuildContext context) {
-                String? ip;
-                String? port;
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.settings, size: 30.0, color: Colors.blue),
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (BuildContext context) {
+                  String? ip;
+                  String? port;
 
-                return AlertDialog(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(20.0)),
-                  ),
-                  title: Text('Settings', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      TextFormField(
-                        decoration: InputDecoration(
-                          labelText: 'IP Address',
-                          hintText: '0.0.0.0',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
+                  return AlertDialog(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(20.0)),
+                    ),
+                    title: Text('Settings',
+                        style: TextStyle(
+                            fontSize: 20, fontWeight: FontWeight.bold)),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        TextFormField(
+                          decoration: InputDecoration(
+                            labelText: 'IP Address',
+                            hintText: '0.0.0.0',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
+                          onChanged: (value) {
+                            ip = value;
+                          },
                         ),
-                        onChanged: (value) {
-                          ip = value;
+                        SizedBox(height: 16),
+                        TextFormField(
+                          decoration: InputDecoration(
+                            labelText: 'Port',
+                            hintText: '0000',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          onChanged: (value) {
+                            port = value;
+                          },
+                        ),
+                      ],
+                    ),
+                    actions: <Widget>[
+                      TextButton(
+                        child: Text('Cancel'),
+                        onPressed: () {
+                          Navigator.of(context).pop();
                         },
                       ),
-                      SizedBox(height: 16),
-                      TextFormField(
-                        decoration: InputDecoration(
-                          labelText: 'Port',
-                          hintText: '0000',
-                          border: OutlineInputBorder(
+                      ElevatedButton(
+                        child: Text('Save'),
+                        onPressed: () async {
+                          if (ip != null && port != null) {
+                            await User.saveSettings(ip!, port!);
+                          }
+                          print(ip);
+                          print(port);
+                          Navigator.of(context).pop();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
+                          primary: Colors.blueAccent,
                         ),
-                        onChanged: (value) {
-                          port = value;
-                        },
                       ),
                     ],
-                  ),
-                  actions: <Widget>[
-                    TextButton(
-                      child: Text('Cancel'),
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                      },
-                    ),
-                    ElevatedButton(
-                      child: Text('Save'),
-                      onPressed: () async {
-                        if (ip != null && port != null) {
-                          await User.saveSettings(ip!, port!);
-                        }
-                        Navigator.of(context).pop();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        primary: Colors.blueAccent,
-                      ),
-                    ),
-                  ],
-                );
-              },
-            );
-          },
-        ),
-      ],
-    ),
-    body: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 5.0),
-      child: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisAlignment: MainAxisAlignment.start, // เพิ่มการจัดเรียงให้อยู่ด้านบน
-            children: [
-              SizedBox(height: 50), // ลดระยะห่างจากด้านบนสุด
-              Text(
-                'Welcome!',
-                style: TextStyle(
-                  fontSize: 36,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blueAccent,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: 8), // ลดระยะห่างระหว่างองค์ประกอบ
-              Text(
-                'Brute Force Attack Monitoring System',
-                style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: 8),
-              Text(
-                'from Web Access Log Files.',
-                style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: 30), // ลดขนาดของระยะห่างเพิ่มเติม
-              TextFormField(
-                controller: _emailController,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  labelText: 'Email',
-                  prefixIcon: Icon(Icons.email),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-                  filled: true,
-                  fillColor: Colors.grey[200],
-                ),
-                validator: (value) {
-                  if (value!.isEmpty) {
-                    return 'Please enter your Email';
-                  }
-                  bool emailValid = RegExp(
-                          r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
-                      .hasMatch(value);
-                  if (!emailValid) {
-                    return 'Please enter a valid Email';
-                  }
-                  return null;
+                  );
                 },
-              ),
-              SizedBox(height: 15), // ลดระยะห่างเพิ่มเติม
-              TextFormField(
-                controller: _passwordController,
-                obscureText: true,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
+              );
+            },
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 5.0),
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                SizedBox(height: 10),
+                Text(
+                  'Welcome!',
+                  style: TextStyle(
+                    fontSize: 36,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blueAccent,
                   ),
-                  labelText: 'Password',
-                  prefixIcon: Icon(Icons.lock),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-                  filled: true,
-                  fillColor: Colors.grey[200],
+                  textAlign: TextAlign.center,
                 ),
-                validator: (value) {
-                  if (value!.isEmpty) {
-                    return 'Please enter your password';
-                  }
-                  return null;
-                },
-              ),
-              SizedBox(height: 50), // ลดขนาดของช่องว่าง
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  primary: Colors.blueAccent,
+                SizedBox(height: 8),
+                Text(
+                  'Brute Force Attack Monitoring System',
+                  style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'from Web Access Log Files.',
+                  style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 30),
+                Card(
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(15),
                   ),
-                  padding: EdgeInsets.symmetric(vertical: 15),
                   elevation: 5,
                   shadowColor: Colors.black.withOpacity(0.3),
-                ),
-                onPressed: () async {
-                  if (_formKey.currentState!.validate()) {
-                    bool network = await _checkNetwork();
-                    if (network) {
-                      setState(() {
-                        _isLoading = true;
-                      });
-                      await _signIn();
-                      setState(() {
-                        _isLoading = false;
-                      });
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('No internet connection')),
-                      );
-                    }
-                  }
-                },
-                child: _isLoading
-                    ? CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      )
-                    : Text(
-                        'Sign In',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16.0, vertical: 10.0),
+                    child: TextFormField(
+                      controller: _emailController,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
                         ),
+                        labelText: 'Email',
+                        prefixIcon: Icon(Icons.email),
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                        filled: true,
+                        fillColor: Colors.grey[200],
                       ),
-              ),
-            ],
+                      validator: (value) {
+                        if (value!.isEmpty) {
+                          return 'Please enter your Email';
+                        }
+                        bool emailValid = RegExp(
+                                r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
+                            .hasMatch(value);
+                        if (!emailValid) {
+                          return 'Please enter a valid Email';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                ),
+                SizedBox(height: 15),
+                Card(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  elevation: 5,
+                  shadowColor: Colors.black.withOpacity(0.3),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16.0, vertical: 10.0),
+                    child: TextFormField(
+                      controller: _passwordController,
+                      obscureText: true,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        labelText: 'Password',
+                        prefixIcon: Icon(Icons.lock),
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                        filled: true,
+                        fillColor: Colors.grey[200],
+                      ),
+                      validator: (value) {
+                        if (value!.isEmpty) {
+                          return 'Please enter your password';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                ),
+                SizedBox(height: 20),
+                // เพิ่ม SliderCaptcha
+                SizedBox(height: 15),
+                ElevatedButton(
+                  onPressed: _isLoading
+                      ? null
+                      : () async {
+                          if (_formKey.currentState!.validate()) {
+                            setState(() {
+                              _isLoading = true;
+                            });
+                            await _signIn();
+                            setState(() {
+                              _isLoading = false;
+                            });
+                          }
+                        },
+                  child: _isLoading
+                      ? CircularProgressIndicator(
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
+                        )
+                      : Text('Sign In'),
+                  style: ElevatedButton.styleFrom(
+                    padding: EdgeInsets.symmetric(vertical: 15.0),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30.0),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 }

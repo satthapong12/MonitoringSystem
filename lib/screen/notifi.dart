@@ -101,12 +101,6 @@ List<dynamic> getPaginatedWarnings() {
        Map<String, String?> settings = await User.getSettings();
   String? ip = settings['ip'];
   String? port = settings['port'];
-  if (ip == null || ip.isEmpty || port == null || port.isEmpty) {
-    ScaffoldMessenger.of(context as BuildContext).showSnackBar(
-      SnackBar(content: Text('Please set IP and Port before signing in')),
-    );
-    return;
-  }
     try {
       var response = await http.delete(
         Uri.parse("http://$ip:$port/deleteHistory"),

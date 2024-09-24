@@ -46,6 +46,7 @@ dependencies:
   webview_flutter_plus:
   connectivity: ^3.0.6
   intl:  ^0.18.0
+  slider_captcha: ^1.0.0
 
 
 
@@ -74,6 +75,9 @@ flutter_icons:
 flutter:
   assets:
     - assets/webpages/
+    - assets/image.jpeg
+    - assets/mooto1.jpeg
+    - assets/
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in

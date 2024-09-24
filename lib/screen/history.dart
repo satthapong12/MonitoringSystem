@@ -356,12 +356,6 @@ Widget build(BuildContext context) {
        Map<String, String?> settings = await User.getSettings();
   String? ip = settings['ip'];
   String? port = settings['port'];
-  if (ip == null || ip.isEmpty || port == null || port.isEmpty) {
-    ScaffoldMessenger.of(context as BuildContext).showSnackBar(
-      SnackBar(content: Text('Please set IP and Port before signing in')),
-    );
-    return;
-  }
     final response = await http.post(
       Uri.parse('http://$ip:$port/deleteNotification'),
       body: jsonEncode(

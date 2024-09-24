@@ -16,7 +16,7 @@ Future<List<String>> sendtocheckAnd() async {
     Map<String, String?> settings = await User.getSettings();
   String? ip = settings['ip'];
   String? port = settings['port'];
-  
+  print(port);
   List<String> storedTokens = await User.getLineNotifyTokens();
   print('check update tokens fun: $storedTokens'); // Debugging line
   
