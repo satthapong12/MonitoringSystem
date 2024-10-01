@@ -43,6 +43,33 @@ Future<List<String>> sendtocheckAnd() async {
   return storedTokens; // ส่งคืนโทเค็น
 }
 
+Future<void> deleteToken(String token) async {
+  Map<String, String?> settings = await User.getSettings();
+  String? ip = settings['ip'];
+  String? port = settings['port'];
+
+  var url = Uri.parse('http://$ip:$port/pushNotification/deleteToken');
+
+  try {
+    var response = await http.delete(
+      url,
+      headers: <String, String>{
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+      body: jsonEncode({'token': token}),
+    );
+
+    if (response.statusCode == 200) {
+      print('Token successfully deleted from the server.');
+    } else if (response.statusCode == 404) {
+      print('Token not found on the server.');
+    } else {
+      print('Failed to delete token. Status code: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Error deleting token: $e');
+  }
+}
 
 
 Future<void> checkAndSendLineNotification() async {
@@ -70,21 +97,6 @@ Future<void> checkAndSendLineNotification() async {
 
         if (notificationStatus == "Notification sent successfully!") {
           print("Notification sent successfully.");
-
-          if (message != null) {
-            var lines = message.split('\n');
-            var title = lines.isNotEmpty ? lines[0] : 'Notification';
-            var body = lines.skip(1).join('\n');
-            var payload = '';
-
-            LocalNotifications.showSimple(
-              title: title,
-              body: body,
-              payload: payload,
-            );
-          } else {
-            print('Message is null. Cannot process notification.');
-          }
         } else {
           print('No new attacks found.');
         }
@@ -96,5 +108,89 @@ Future<void> checkAndSendLineNotification() async {
     }
   } catch (e) {
     print('Error receiving notification: $e');
+  }
+}
+
+
+Future<void> LocalNotification() async {
+  try {
+    // ดึงการตั้งค่าผู้ใช้
+    Map<String, String?> settings = await User.getSettings();
+    String? ip = settings['ip'];
+    String? port = settings['port'];
+
+    if (ip == null || port == null) {
+      print('IP หรือ Port เป็น null ไม่สามารถดำเนินการได้');
+      return;
+    }
+
+    var url = Uri.parse('http://$ip:$port/checkData/detect');
+
+    // ส่งคำขอ GET ไปยัง API
+    var response = await http.get(
+      url,
+      headers: <String, String>{
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+    );
+
+    print('Status Code: ${response.statusCode}');
+    print('Response Body: ${response.body}');
+
+    if (response.statusCode == 200) {
+      var responseData = json.decode(response.body);
+
+      if (responseData is Map<String, dynamic>) {
+        var message = responseData['message'];
+        var newData = responseData['newData'];
+
+        if (message != null && newData is List) {
+          if (newData.isNotEmpty) {
+            print("พบการเปลี่ยนแปลงสถานะใหม่ กำลังส่งการแจ้งเตือน...");
+
+            for (var data in newData) {
+              if (data is Map<String, dynamic>) {
+                var notificationMessage = data['message'];
+                if (notificationMessage != null) {
+                  var lines = notificationMessage.split('\n');
+                  var title = lines.isNotEmpty ? lines[0] : 'Notification';
+                  var body = lines.skip(1).join('\n');
+                  var payload = '';
+
+                  // แสดงการแจ้งเตือน
+                  LocalNotifications.showSimple(
+                    title: title,
+                    body: body,
+                    payload: payload,
+                  );
+
+                  print('แจ้งเตือนแสดง: $title - $body');
+                } else {
+                  print('ข้อความการแจ้งเตือนเป็น null สำหรับ id ${data['id']}');
+                }
+              } else {
+                print('รูปแบบข้อมูลใน newData ไม่ถูกต้อง');
+              }
+            }
+          } else {
+            print('ไม่พบการโจมตีใหม่');
+            // หากต้องการสามารถแสดงการแจ้งเตือนว่าไม่มีการเปลี่ยนแปลงได้
+            // LocalNotifications.showSimple(
+            //   title: 'ไม่มีการเปลี่ยนแปลง',
+            //   body: 'ไม่พบการโจมตีใหม่ในระบบของคุณ',
+            //   payload: '',
+            // );
+          }
+        } else {
+          print('รูปแบบการตอบกลับไม่ถูกต้องหรือข้อมูลหายไป');
+        }
+      } else {
+        print('ข้อมูลตอบกลับไม่ใช่ Map<String, dynamic>');
+      }
+    } else {
+      print('ไม่สามารถรับการแจ้งเตือนได้ รหัสสถานะ: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('เกิดข้อผิดพลาดในการรับการแจ้งเตือน: $e');
   }
 }

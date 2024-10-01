@@ -12,14 +12,14 @@ import 'package:http/http.dart' as http;
 import '../Service/line.dart';
 import '../main.dart';
 
-class set_ting  extends StatefulWidget {
-  const set_ting ({Key? key}) : super(key: key);
+class set_ting extends StatefulWidget {
+  const set_ting({Key? key}) : super(key: key);
 
   @override
-  State<set_ting > createState() => _SetTingState();
+  State<set_ting> createState() => _SetTingState();
 }
 
-class _SetTingState extends State<set_ting > {
+class _SetTingState extends State<set_ting> {
   bool _notificationsEnabled = true;
   List<dynamic> _attackGroups = [];
   Timer? _updateTimer;
@@ -27,9 +27,7 @@ class _SetTingState extends State<set_ting > {
   List<dynamic> _tokens = [];
   List<String> _selectedEmail = [];
   late Future<bool?> _uroleFuture;
-    bool isAdmin = true; // Variable to store the admin status
-
-
+  bool isAdmin = true; // Variable to store the admin status
 
   @override
   void dispose() {
@@ -44,11 +42,10 @@ class _SetTingState extends State<set_ting > {
     _fetchAttackGroups();
     _loadEmails();
     _uroleFuture = User.geturole();
-        _checkIfAdmin(); // Check admin status
-
-
+    _checkIfAdmin(); // Check admin status
   }
-   Future<void> _checkIfAdmin() async {
+
+  Future<void> _checkIfAdmin() async {
     bool? role = await User.geturole();
     setState(() {
       isAdmin = role ?? true; // Default to false if not set
@@ -134,11 +131,11 @@ class _SetTingState extends State<set_ting > {
   }
 
   Future<void> _showTokenDialog(BuildContext context) async {
-       Map<String, String?> settings = await User.getSettings();
-  String? ip = settings['ip'];
-  String? port = settings['port'];
-    final response = await http
-        .get(Uri.parse('http://$ip:$port/tokenapi/fetch_tokens'));
+    Map<String, String?> settings = await User.getSettings();
+    String? ip = settings['ip'];
+    String? port = settings['port'];
+    final response =
+        await http.get(Uri.parse('http://$ip:$port/tokenapi/fetch_tokens'));
 
     if (response.statusCode == 200) {
       final List<dynamic> tokens = json.decode(response.body)['tokens'];
@@ -178,11 +175,11 @@ class _SetTingState extends State<set_ting > {
 
                                   savedTokens.remove(token);
                                   savedEmails.remove(email);
-
                                   await prefs.setStringList(
                                       'lineNotifyTokens', savedTokens);
                                   await prefs.setStringList(
                                       'lineNotifyEmails', savedEmails);
+                                  deleteToken(token);
 
                                   setState(() {
                                     _selectedEmail = savedEmails;
@@ -211,6 +208,7 @@ class _SetTingState extends State<set_ting > {
                                         'lineNotifyTokens', savedTokens);
                                     await prefs.setStringList(
                                         'lineNotifyEmails', savedEmails);
+                                    sendtocheckAnd();
 
                                     setState(() {
                                       _selectedEmail = savedEmails;
@@ -235,7 +233,6 @@ class _SetTingState extends State<set_ting > {
                       print('Stored Tokens: $savedTokens');
                       print('Stored Emails: $savedEmails');
                       await _loadEmails();
-                      sendtocheckAnd();
                       Navigator.of(context).pop();
                     },
                   ),
@@ -256,7 +253,7 @@ class _SetTingState extends State<set_ting > {
     setState(() {
       _selectedEmail = emails ?? [];
     });
-  } 
+  }
 
   Future<void> logout() async {
     await User.setsigin(false);
@@ -304,7 +301,7 @@ class _SetTingState extends State<set_ting > {
     );
   }
 
-   @override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -357,32 +354,37 @@ class _SetTingState extends State<set_ting > {
                   children: [
                     Text(
                       'Attack Groups',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     SizedBox(height: 10),
-                    ..._attackGroups.map((group) => ListTile(
-                      contentPadding: EdgeInsets.symmetric(vertical: 8.0),
-                      title: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              group['name'],
-                              style: TextStyle(fontSize: 16),
-                            ),
-                          ),
-                        ],
-                      ),
-                      subtitle: Text(
-                        'Threshold: ${group['Threshold']}',
-                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                      ),
-                      trailing: IconButton(
-                        icon: Icon(Icons.edit),
-                        onPressed: () {
-                          _showEditDialog(context, group);
-                        },
-                      ),
-                    )).toList(),
+                    ..._attackGroups
+                        .map((group) => ListTile(
+                              contentPadding:
+                                  EdgeInsets.symmetric(vertical: 8.0),
+                              title: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      group['name'],
+                                      style: TextStyle(fontSize: 16),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              subtitle: Text(
+                                'Threshold: ${group['Threshold']}',
+                                style: TextStyle(
+                                    fontSize: 14, color: Colors.grey[600]),
+                              ),
+                              trailing: IconButton(
+                                icon: Icon(Icons.edit),
+                                onPressed: () {
+                                  _showEditDialog(context, group);
+                                },
+                              ),
+                            ))
+                        .toList(),
                   ],
                 ),
               ),
@@ -398,7 +400,8 @@ class _SetTingState extends State<set_ting > {
                     children: [
                       Text(
                         'Line Notify Token',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            fontSize: 20, fontWeight: FontWeight.bold),
                       ),
                       SizedBox(height: 10),
                       Text(

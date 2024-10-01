@@ -19,6 +19,8 @@ class his_tory extends StatefulWidget {
 class _his_toryState extends State<his_tory> {
   late Future<List<Map<String, dynamic>>> _notificationFuture;
   late TextEditingController _dateController;
+    int currentPage = 1;
+  int itemsPerPage = 5; 
 
   @override
   void initState() {
@@ -28,6 +30,7 @@ class _his_toryState extends State<his_tory> {
     _notificationFuture = fetchNotifications(); // Default fetch without date
     _dateController = TextEditingController();
   }
+
 
 Future<List<Map<String, dynamic>>> fetchNotifications([String? date]) async {
   Map<String, String?> settings = await User.getSettings();
@@ -95,128 +98,217 @@ Future<List<Map<String, dynamic>>> fetchNotifications([String? date]) async {
         return Colors.grey;
     }
   }
+  // ฟังก์ชันสำหรับการแบ่งหน้า
+  List<Map<String, dynamic>> getPaginatedNotifications(List<Map<String, dynamic>> notifications) {
+    final startIndex = (currentPage - 1) * itemsPerPage;
+    if (startIndex >= notifications.length) {
+      return [];
+    }
 
-@override
-Widget build(BuildContext context) {
-  return Scaffold(
-    backgroundColor: Color(0xFFF5F5F5),
-    appBar: AppBar(
-      backgroundColor: Colors.blue,
-      automaticallyImplyLeading: false,
-      title: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text("Notifications", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          IconButton(
-            onPressed: () async {
-              await _showDatePicker(context);  // สมมติว่ามีฟังก์ชัน `_showDatePicker`
-            },
-            icon: Icon(Icons.calendar_today, color: Colors.white),
-          ),
-        ],
+    final endIndex = startIndex + itemsPerPage;
+    return notifications.sublist(
+      startIndex,
+      endIndex > notifications.length ? notifications.length : endIndex,
+    );
+  }
+
+  int totalPages(List<Map<String, dynamic>> notifications) {
+    return (notifications.length / itemsPerPage).ceil();
+  }
+
+
+
+ @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Color(0xFFF5F5F5),
+      appBar: AppBar(
+        backgroundColor: Colors.blue,
+        automaticallyImplyLeading: false,
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text("Notifications", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            Row(
+              children: [
+                IconButton(
+                  onPressed: () async {
+                    await _showDatePicker(context);
+                  },
+                  icon: Icon(Icons.calendar_today, color: Colors.white),
+                  tooltip: 'เลือกวันที่',
+                ),
+                IconButton(
+                  onPressed: () {
+                    setState(() {
+                      _dateController.clear();
+                      currentPage = 1;
+                      _notificationFuture = fetchNotifications();
+                    });
+                  },
+                  icon: Icon(Icons.refresh, color: Colors.white),
+                  tooltip: 'รีเซ็ตการกรองวันที่',
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
-    ),
-    body: Center(
-      child: FutureBuilder<List<Map<String, dynamic>>>(
-        future: _notificationFuture,  // ตรวจสอบว่าชื่อ Future ตรงหรือไม่
+      body: FutureBuilder<List<Map<String, dynamic>>>(
+        future: _notificationFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return CircularProgressIndicator();
+            return Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
-            return Text('Error: ${snapshot.error}', style: TextStyle(color: Colors.red, fontSize: 16));
+            return Center(
+              child: Text(
+                'Error: ${snapshot.error}',
+                style: TextStyle(color: Colors.red, fontSize: 16),
+              ),
+            );
           } else {
             if (snapshot.data!.isEmpty) {
-              return Text('No notifications found.', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold));
+              return Center(
+                child: Text(
+                  'No notifications found.',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              );
             } else {
-              return ListView.builder(
-                itemCount: snapshot.data!.length,
-                itemBuilder: (context, index) {
-                  var notification = snapshot.data![index];
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    child: Card(
-                      elevation: 4,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                      child: ListTile(
-                        contentPadding: EdgeInsets.all(16),
-                        leading: Icon(
-                          grade: 24,
-                          getIconForStatus(notification['status'] ?? ''),
-                          color: getColorForStatus(notification['status'] ?? ''),
-                          size: 32,
-                        ),
-                        title: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "Type: ${notification['type'] ?? 'N/A'}",
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              // คำนวณจำนวนหน้าทั้งหมด
+              int totalPageCount = totalPages(snapshot.data!);
+              // ดึงข้อมูลเฉพาะหน้าปัจจุบัน
+              List<Map<String, dynamic>> paginatedNotifications = getPaginatedNotifications(snapshot.data!);
+
+              return Column(
+                children: [
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: paginatedNotifications.length,
+                      itemBuilder: (context, index) {
+                        var notification = paginatedNotifications[index];
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          child: Card(
+                            elevation: 4,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15),
                             ),
-                            SizedBox(height: 5),
-                            Text("Count: ${notification['count'] ?? 'N/A'}"),
-                            Text(
-                              "Status: ${notification['status'] ?? 'Unknown'}",
-                              style: TextStyle(
+                            child: ListTile(
+                              contentPadding: EdgeInsets.all(16),
+                              leading: Icon(
+                                getIconForStatus(notification['status'] ?? ''),
                                 color: getColorForStatus(notification['status'] ?? ''),
+                                size: 32,
                               ),
-                            ),
-                            Text("Date Detected: ${notification['date_detec'] ?? 'Unknown'}"),
-                          ],
-                        ),
-                        trailing: IconButton(
-                          icon: Icon(Icons.delete, color: Colors.red),
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: Text('Confirm Deletion', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                                content: Text('Are you sure you want to delete this history?'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () {
-                                      Navigator.of(context).pop();
-                                    },
-                                    child: Text('Cancel', style: TextStyle(color: Colors.grey)),
+                              title: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "Type: ${notification['type'] ?? 'N/A'}",
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                                   ),
-                                  TextButton(
-                                    onPressed: () {
-                                      Navigator.of(context).pop();
-                                      _deleteNotification(notification);  // ฟังก์ชันลบ
-                                    },
-                                    child: Text('Delete', style: TextStyle(color: Colors.red)),
+                                  SizedBox(height: 5),
+                                  Text("Count: ${notification['count'] ?? 'N/A'}"),
+                                  Text(
+                                    "Status: ${notification['status'] ?? 'Unknown'}",
+                                    style: TextStyle(
+                                      color: getColorForStatus(notification['status'] ?? ''),
+                                    ),
                                   ),
+                                  Text("Date Detected: ${notification['date_detec'] ?? 'Unknown'}"),
                                 ],
                               ),
-                            );
-                          },
-                        ),
-                        onTap: () {
-                          final filePath = notification['id'].toString();
-                          if (filePath.isNotEmpty) {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => FileContentPage(filePath: filePath),  // หน้าดูไฟล์
+                              trailing: IconButton(
+                                icon: Icon(Icons.delete, color: Colors.red),
+                                onPressed: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: Text('Confirm Deletion', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                                      content: Text('Are you sure you want to delete this history?'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () {
+                                            Navigator.of(context).pop();
+                                          },
+                                          child: Text('Cancel', style: TextStyle(color: Colors.grey)),
+                                        ),
+                                        TextButton(
+                                          onPressed: () {
+                                            Navigator.of(context).pop();
+                                            _deleteNotification(notification);
+                                          },
+                                          child: Text('Delete', style: TextStyle(color: Colors.red)),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
                               ),
-                            );
-                          } else {
-                            print("File path is missing");
-                          }
-                        },
-                      ),
+                              onTap: () {
+                                final filePath = notification['id'].toString();
+                                if (filePath.isNotEmpty) {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => FileContentPage(filePath: filePath),
+                                    ),
+                                  );
+                                } else {
+                                  print("File path is missing");
+                                }
+                              },
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
+                  ),
+                  // ระบบการแบ่งหน้า
+                  buildPaginationControls(totalPageCount),
+                ],
               );
             }
           }
         },
       ),
-    ),
-  );
-}
+    );
+  }
+
+  Widget buildPaginationControls(int totalPageCount) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconButton(
+            onPressed: currentPage > 1
+                ? () {
+                    setState(() {
+                      currentPage--;
+                      _notificationFuture = fetchNotifications(_dateController.text.isNotEmpty ? _dateController.text : null);
+                    });
+                  }
+                : null,
+            icon: Icon(Icons.arrow_back),
+          ),
+          Text('$currentPage of $totalPageCount'),
+          IconButton(
+            onPressed: currentPage < totalPageCount
+                ? () {
+                    setState(() {
+                      currentPage++;
+                      _notificationFuture = fetchNotifications(_dateController.text.isNotEmpty ? _dateController.text : null);
+                    });
+                  }
+                : null,
+            icon: Icon(Icons.arrow_forward),
+          ),
+        ],
+      ),
+    );
+  }
   void _showFileContentDialog(BuildContext context, String filePath) async {
     print('File Path: $filePath');
 
