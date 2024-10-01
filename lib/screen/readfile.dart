@@ -127,10 +127,9 @@ class _FileContentPageState extends State<FileContentPage> {
                                       color: record.typeColor,
                                     ),
                                   ),
-                                  SizedBox(height: 8),
                                   // Pattern
                                   Text(
-                                    'Pattern: ${record.pattern}',
+                                    '${record.pattern}',
                                     style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
