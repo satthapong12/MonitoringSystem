@@ -79,8 +79,17 @@ class _SetTingState extends State<set_ting> {
   }
 
   Future<void> _fetchTokens() async {
+    Map<String, String?> settings = await User.getSettings();
+    String? ip = settings['ip'];
+    String? port = settings['port'];
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+     String? token = prefs.getString('jwt_token');
     final response = await http
-        .get(Uri.parse('http://192.168.1.104:3001/tokenapi/fetch_tokens'));
+        .get(Uri.parse('http://$ip:$port/routes/tokenapi/fetch_tokens'),
+        headers: {
+          'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+        });
 
     if (response.statusCode == 200) {
       setState(() {
@@ -95,8 +104,15 @@ class _SetTingState extends State<set_ting> {
     Map<String, String?> settings = await User.getSettings();
     String? ip = settings['ip'];
     String? port = settings['port'];
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+     String? token = prefs.getString('jwt_token');
     final response =
-        await http.get(Uri.parse('http://$ip:$port/setThreshold/fetch_group'));
+        await http.get(Uri.parse('http://$ip:$port/routes/setThreshold/fetch_group'),
+         headers: {
+          'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+        }
+        );
     if (response.statusCode == 200) {
       setState(() {
         _attackGroups = json.decode(response.body)['AttackGroup'];
@@ -134,8 +150,15 @@ class _SetTingState extends State<set_ting> {
     Map<String, String?> settings = await User.getSettings();
     String? ip = settings['ip'];
     String? port = settings['port'];
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+     String? token = prefs.getString('jwt_token');
     final response =
-        await http.get(Uri.parse('http://$ip:$port/tokenapi/fetch_tokens'));
+        await http.get(Uri.parse('http://$ip:$port/routes/tokenapi/fetch_tokens'),
+         headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+        );
 
     if (response.statusCode == 200) {
       final List<dynamic> tokens = json.decode(response.body)['tokens'];

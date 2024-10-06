@@ -11,13 +11,24 @@ Future<void> fetchUserProfile() async {
     Map<String, String?> settings = await User.getSettings();
   String? ip = settings['ip'];
   String? port = settings['port'];
-  
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+  String? token = prefs.getString('jwt_token');
+
+  if (token == null || token.isEmpty) {
+     print('Please log in first');
+    return;
+  }
+
   // URL ของ API ที่ดึงข้อมูลผู้ใช้
-  String url = "http://$ip:$port/data/users";
+  String url = "http://$ip:$port/routes/data/users";
   
   try {
     // เรียกข้อมูลจาก API
-    final response = await http.get(Uri.parse(url));
+    final response = await http.get(Uri.parse(url),
+     headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },);
         String? userEmail = await User.getEmail();
         print("LoginCheck : $userEmail");
 

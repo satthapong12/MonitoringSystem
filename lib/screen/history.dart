@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:async';
@@ -5,6 +6,7 @@ import 'dart:convert';
 
 import 'package:intl/intl.dart';
 import 'package:Monitoring/screen/readfile.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../Service/fetch_user_profile.dart';
 import '../user.dart';
@@ -19,59 +21,65 @@ class his_tory extends StatefulWidget {
 class _his_toryState extends State<his_tory> {
   late Future<List<Map<String, dynamic>>> _notificationFuture;
   late TextEditingController _dateController;
-    int currentPage = 1;
-  int itemsPerPage = 5; 
+  int currentPage = 1;
+  int itemsPerPage = 5;
 
   @override
   void initState() {
     super.initState();
-        fetchUserProfile();
+    fetchUserProfile();
 
     _notificationFuture = fetchNotifications(); // Default fetch without date
     _dateController = TextEditingController();
   }
 
+  Future<List<Map<String, dynamic>>> fetchNotifications([String? date]) async {
+    Map<String, String?> settings = await User.getSettings();
+    String? ip = settings['ip'];
+    String? port = settings['port'];
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? token = prefs.getString('jwt_token');
 
-Future<List<Map<String, dynamic>>> fetchNotifications([String? date]) async {
-  Map<String, String?> settings = await User.getSettings();
-  String? ip = settings['ip'];
-  String? port = settings['port'];
+    final uri = Uri.parse(
+        'http://$ip:$port/routes/showNotifications/getNotifications${date != null ? '?date=$date' : ''}');
+    final response = await http.get(uri, headers: {
+      'Authorization': 'Bearer $token',
+    });
 
-  final uri = Uri.parse('http://$ip:$port/showNotifications/getNotifications${date != null ? '?date=$date' : ''}');
-  final response = await http.get(uri);
+    if (response.statusCode == 200) {
+      try {
+        var data = jsonDecode(response.body);
+        print('Response data: $data');
 
-  if (response.statusCode == 200) {
-    try {
-      var data = jsonDecode(response.body);
-      print('Response data: $data');
+        if (data is Map<String, dynamic> && data.containsKey('data')) {
+          List<Map<String, dynamic>> notifications =
+              List<Map<String, dynamic>>.from(data['data']);
 
-      if (data is Map<String, dynamic> && data.containsKey('data')) {
-        List<Map<String, dynamic>> notifications = List<Map<String, dynamic>>.from(data['data']);
+          // Filter notifications to include only those with the exact date (ignoring time)
+          if (date != null) {
+            notifications = notifications.where((notification) {
+              final notificationDate = notification['date_detec'] as String?;
+              return notificationDate != null &&
+                  notificationDate.startsWith(date);
+            }).toList();
+          }
 
-        // Filter notifications to include only those with the exact date (ignoring time)
-        if (date != null) {
-          notifications = notifications.where((notification) {
-            final notificationDate = notification['date_detec'] as String?;
-            return notificationDate != null &&
-                notificationDate.startsWith(date);
-          }).toList();
+          print('Filtered notifications: $notifications');
+          return notifications;
+        } else {
+          print(
+              'Error: Invalid data format. Expected a Map with a "data" key.');
+          throw Exception('Invalid data format');
         }
-
-        print('Filtered notifications: $notifications');
-        return notifications;
-      } else {
-        print('Error: Invalid data format. Expected a Map with a "data" key.');
-        throw Exception('Invalid data format');
+      } catch (e) {
+        print('Error parsing response: $e');
+        throw Exception('Failed to parse notifications');
       }
-    } catch (e) {
-      print('Error parsing response: $e');
-      throw Exception('Failed to parse notifications');
+    } else {
+      print('Failed to load notifications: Status Code ${response.statusCode}');
+      throw Exception('Failed to load notifications');
     }
-  } else {
-    print('Failed to load notifications: Status Code ${response.statusCode}');
-    throw Exception('Failed to load notifications');
   }
-}
 
   IconData getIconForStatus(String status) {
     switch (status) {
@@ -98,8 +106,10 @@ Future<List<Map<String, dynamic>>> fetchNotifications([String? date]) async {
         return Colors.grey;
     }
   }
+
   // ฟังก์ชันสำหรับการแบ่งหน้า
-  List<Map<String, dynamic>> getPaginatedNotifications(List<Map<String, dynamic>> notifications) {
+  List<Map<String, dynamic>> getPaginatedNotifications(
+      List<Map<String, dynamic>> notifications) {
     final startIndex = (currentPage - 1) * itemsPerPage;
     if (startIndex >= notifications.length) {
       return [];
@@ -116,9 +126,7 @@ Future<List<Map<String, dynamic>>> fetchNotifications([String? date]) async {
     return (notifications.length / itemsPerPage).ceil();
   }
 
-
-
- @override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Color(0xFFF5F5F5),
@@ -128,7 +136,8 @@ Future<List<Map<String, dynamic>>> fetchNotifications([String? date]) async {
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text("Notifications", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            Text("Notifications",
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             Row(
               children: [
                 IconButton(
@@ -178,7 +187,8 @@ Future<List<Map<String, dynamic>>> fetchNotifications([String? date]) async {
               // คำนวณจำนวนหน้าทั้งหมด
               int totalPageCount = totalPages(snapshot.data!);
               // ดึงข้อมูลเฉพาะหน้าปัจจุบัน
-              List<Map<String, dynamic>> paginatedNotifications = getPaginatedNotifications(snapshot.data!);
+              List<Map<String, dynamic>> paginatedNotifications =
+                  getPaginatedNotifications(snapshot.data!);
 
               return Column(
                 children: [
@@ -188,7 +198,8 @@ Future<List<Map<String, dynamic>>> fetchNotifications([String? date]) async {
                       itemBuilder: (context, index) {
                         var notification = paginatedNotifications[index];
                         return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 5),
                           child: Card(
                             elevation: 4,
                             shape: RoundedRectangleBorder(
@@ -198,7 +209,8 @@ Future<List<Map<String, dynamic>>> fetchNotifications([String? date]) async {
                               contentPadding: EdgeInsets.all(16),
                               leading: Icon(
                                 getIconForStatus(notification['status'] ?? ''),
-                                color: getColorForStatus(notification['status'] ?? ''),
+                                color: getColorForStatus(
+                                    notification['status'] ?? ''),
                                 size: 32,
                               ),
                               title: Column(
@@ -206,17 +218,22 @@ Future<List<Map<String, dynamic>>> fetchNotifications([String? date]) async {
                                 children: [
                                   Text(
                                     "Type: ${notification['type'] ?? 'N/A'}",
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18),
                                   ),
                                   SizedBox(height: 5),
-                                  Text("Count: ${notification['count'] ?? 'N/A'}"),
+                                  Text(
+                                      "Count: ${notification['count'] ?? 'N/A'}"),
                                   Text(
                                     "Status: ${notification['status'] ?? 'Unknown'}",
                                     style: TextStyle(
-                                      color: getColorForStatus(notification['status'] ?? ''),
+                                      color: getColorForStatus(
+                                          notification['status'] ?? ''),
                                     ),
                                   ),
-                                  Text("Date Detected: ${notification['date_detec'] ?? 'Unknown'}"),
+                                  Text(
+                                      "Date Detected: ${notification['date_detec'] ?? 'Unknown'}"),
                                 ],
                               ),
                               trailing: IconButton(
@@ -225,21 +242,29 @@ Future<List<Map<String, dynamic>>> fetchNotifications([String? date]) async {
                                   showDialog(
                                     context: context,
                                     builder: (context) => AlertDialog(
-                                      title: Text('Confirm Deletion', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                                      content: Text('Are you sure you want to delete this history?'),
+                                      title: Text('Confirm Deletion',
+                                          style: TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold)),
+                                      content: Text(
+                                          'Are you sure you want to delete this history?'),
                                       actions: [
                                         TextButton(
                                           onPressed: () {
                                             Navigator.of(context).pop();
                                           },
-                                          child: Text('Cancel', style: TextStyle(color: Colors.grey)),
+                                          child: Text('Cancel',
+                                              style: TextStyle(
+                                                  color: Colors.grey)),
                                         ),
                                         TextButton(
                                           onPressed: () {
                                             Navigator.of(context).pop();
                                             _deleteNotification(notification);
                                           },
-                                          child: Text('Delete', style: TextStyle(color: Colors.red)),
+                                          child: Text('Delete',
+                                              style:
+                                                  TextStyle(color: Colors.red)),
                                         ),
                                       ],
                                     ),
@@ -252,7 +277,8 @@ Future<List<Map<String, dynamic>>> fetchNotifications([String? date]) async {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) => FileContentPage(filePath: filePath),
+                                      builder: (context) =>
+                                          FileContentPage(filePath: filePath),
                                     ),
                                   );
                                 } else {
@@ -287,7 +313,10 @@ Future<List<Map<String, dynamic>>> fetchNotifications([String? date]) async {
                 ? () {
                     setState(() {
                       currentPage--;
-                      _notificationFuture = fetchNotifications(_dateController.text.isNotEmpty ? _dateController.text : null);
+                      _notificationFuture = fetchNotifications(
+                          _dateController.text.isNotEmpty
+                              ? _dateController.text
+                              : null);
                     });
                   }
                 : null,
@@ -299,7 +328,10 @@ Future<List<Map<String, dynamic>>> fetchNotifications([String? date]) async {
                 ? () {
                     setState(() {
                       currentPage++;
-                      _notificationFuture = fetchNotifications(_dateController.text.isNotEmpty ? _dateController.text : null);
+                      _notificationFuture = fetchNotifications(
+                          _dateController.text.isNotEmpty
+                              ? _dateController.text
+                              : null);
                     });
                   }
                 : null,
@@ -309,15 +341,16 @@ Future<List<Map<String, dynamic>>> fetchNotifications([String? date]) async {
       ),
     );
   }
+
   void _showFileContentDialog(BuildContext context, String filePath) async {
     print('File Path: $filePath');
 
     final encodedFilePath = Uri.encodeComponent(filePath);
-     Map<String, String?> settings = await User.getSettings();
-      String? ip = settings['ip'];
-      String? port = settings['port'];
-    var url = Uri.parse(
-        "http://$ip:$port/readfile/file-content/$encodedFilePath");
+    Map<String, String?> settings = await User.getSettings();
+    String? ip = settings['ip'];
+    String? port = settings['port'];
+    var url =
+        Uri.parse("http://$ip:$port/readfile/file-content/$encodedFilePath");
     print('Request URL: $url');
 
     try {
@@ -445,9 +478,9 @@ Future<List<Map<String, dynamic>>> fetchNotifications([String? date]) async {
   }
 
   Future<void> _deleteNotification(Map<String, dynamic> notification) async {
-       Map<String, String?> settings = await User.getSettings();
-  String? ip = settings['ip'];
-  String? port = settings['port'];
+    Map<String, String?> settings = await User.getSettings();
+    String? ip = settings['ip'];
+    String? port = settings['port'];
     final response = await http.post(
       Uri.parse('http://$ip:$port/deleteNotification'),
       body: jsonEncode(
@@ -466,42 +499,42 @@ Future<List<Map<String, dynamic>>> fetchNotifications([String? date]) async {
     }
   }
 
-Future<void> _showDatePicker(BuildContext context) async {
-  final DateTime? pickedDate = await showDatePicker(
-    context: context,
-    initialDate: DateTime.now(),
-    firstDate: DateTime(2010),
-    lastDate: DateTime.now(),
-  );
+  Future<void> _showDatePicker(BuildContext context) async {
+    final DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2010),
+      lastDate: DateTime.now(),
+    );
 
-  print('Picked Date: $pickedDate'); // เพิ่มบรรทัดนี้
+    print('Picked Date: $pickedDate'); // เพิ่มบรรทัดนี้
 
-  if (pickedDate != null && mounted) {
-    setState(() {
-      _dateController.text = _formattedDate(pickedDate);
-      _notificationFuture = fetchNotifications(_formattedDate(pickedDate));
-    });
+    if (pickedDate != null && mounted) {
+      setState(() {
+        _dateController.text = _formattedDate(pickedDate);
+        _notificationFuture = fetchNotifications(_formattedDate(pickedDate));
+      });
+    }
   }
-}
 
   String _formattedDate(DateTime date) {
     return "${date.year}-${_twoDigits(date.month)}-${_twoDigits(date.day)}";
   }
 
   String formatDate(String dateString) {
-  try {
-    // Parse the ISO 8601 date string to a DateTime object
-    DateTime dateTime = DateTime.parse(dateString);
+    try {
+      // Parse the ISO 8601 date string to a DateTime object
+      DateTime dateTime = DateTime.parse(dateString);
 
-    // Format the DateTime object to the desired format
-    final DateFormat formatter = DateFormat('yyyy-MM-dd HH:mm:ss');
-    return formatter.format(dateTime.toLocal()); // Convert to local time
-  } catch (e) {
-    // Handle parsing errors
-    print('Error parsing date: $e');
-    return 'Invalid date';
+      // Format the DateTime object to the desired format
+      final DateFormat formatter = DateFormat('yyyy-MM-dd HH:mm:ss');
+      return formatter.format(dateTime.toLocal()); // Convert to local time
+    } catch (e) {
+      // Handle parsing errors
+      print('Error parsing date: $e');
+      return 'Invalid date';
+    }
   }
-}
 
   String _twoDigits(int n) {
     return n >= 10 ? "$n" : "0$n";

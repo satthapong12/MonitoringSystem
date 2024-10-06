@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:Monitoring/main.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../Service/fetch_user_profile.dart';
 import 'package:Monitoring/user.dart';
@@ -26,17 +27,40 @@ class _ProfilePageState extends State<pro_file > {
     User.checkLoginStatus();
   }
 
-  Future<void> updateUserProfile(String field, String value) async {
-    Map<String, String?> settings = await User.getSettings();
-    String? ip = settings['ip'];
-    String? port = settings['port'];
+ Future<void> updateUserProfile(String field, String value) async {
+  Map<String, String?> settings = await User.getSettings();
+  
+  String? ip = settings['ip'];
+  String? port = settings['port'];
+  
+  if (ip == null || ip.isEmpty || port == null || port.isEmpty) {
+    await showPopup('Please set IP and Port before updating profile');
+    return;
+  }
+
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  String? token = prefs.getString('jwt_token');
+
+  if (token == null || token.isEmpty) {
+    await showPopup('Please log in first');
+    return;
+  }
+
+  // เปลี่ยน URL ให้ถูกต้อง
+  String url = "http://$ip:$port/routes/update_user";
+
+  try {
     final response = await http.post(
-      Uri.parse('http://$ip:$port/update_user'),
-      body: {
-        'email': User.email,
+      Uri.parse(url),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: json.encode({
+        'email': User.email, // ตรวจสอบให้แน่ใจว่า User.email ถูกต้อง
         'field': field,
         'value': value,
-      },
+      }),
     );
 
     if (response.statusCode == 200) {
@@ -61,13 +85,57 @@ class _ProfilePageState extends State<pro_file > {
               break;
           }
         });
+        await showPopup('Profile updated successfully.');
       } else {
         log('Error updating profile: ${responseBody['message']}');
+        await showPopup('Error updating profile: ${responseBody['message']}');
       }
     } else {
       log('Error updating profile: ${response.statusCode}');
+      await showPopup('Error updating profile: ${response.statusCode}');
     }
+  } catch (e) {
+    print('Error: $e');
+    await showPopup('Failed to update profile. Please try again.');
   }
+}
+Future<void> showPopup(String message) async {
+  return showDialog<void>(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20.0),
+        ),
+        title: Row(
+          children: [
+            Icon(Icons.notification_important, color: Colors.blue),
+            SizedBox(width: 8),
+            Text('เกิดข้อผิดพลาด', style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Text(
+            message,
+            style: TextStyle(fontSize: 16),
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+            child: Text(
+              'OK',
+              style: TextStyle(color: Colors.blue),
+            ),
+          ),
+        ],
+      );
+    },
+  );
+}
 
   Future<void> _showEditDialog(String field, String currentValue) async {
     TextEditingController controller =

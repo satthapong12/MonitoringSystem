@@ -66,7 +66,7 @@ void onStart(ServiceInstance service) async {
     service.stopSelf();
   });
 
-Timer.periodic(const Duration(seconds: 5), (timer) async {
+Timer.periodic(const Duration(seconds: 19), (timer) async {
 
     // เรียกใช้ฟังก์ชัน checkAndSendLineNotification
     await LocalNotification();

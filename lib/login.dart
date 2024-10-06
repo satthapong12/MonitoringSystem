@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'package:Monitoring/Service/local_notifcation.dart';
 import 'package:Monitoring/home.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:connectivity/connectivity.dart';
 import 'package:slider_captcha/slider_captcha.dart';
@@ -40,7 +41,7 @@ Future<void> _signIn() async {
     return;
   }
 
-  String url = "http://$ip:$port/login";
+  String url = "http://$ip:$port/routes/login";
 
   try {
     final response = await http.post(Uri.parse(url), body: {
@@ -51,7 +52,10 @@ Future<void> _signIn() async {
     if (response.statusCode == 200) {
       var data = json.decode(response.body);
       if (data['message'] == "Login successful.") {
-        // ข้อมูลล็อกอินถูกต้อง ให้แสดง SliderCaptcha
+        String token = data['token'];
+         SharedPreferences prefs = await SharedPreferences.getInstance();
+        await prefs.setString('jwt_token', token);
+        print(token);
         await _showSliderCaptchaDialog();
 
         // หลังจากยืนยัน slider

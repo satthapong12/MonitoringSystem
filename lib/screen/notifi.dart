@@ -6,6 +6,7 @@ import 'package:Monitoring/screen/readfile.dart';
 import 'package:Monitoring/user.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../Service/fetch_user_profile.dart';
 
@@ -47,9 +48,15 @@ class _noti_fiState extends State<noti_fi> with TickerProviderStateMixin {
     Map<String, String?> settings = await User.getSettings();
     String? ip = settings['ip'];
     String? port = settings['port'];
-    var url = Uri.parse("http://$ip:$port/history/fetch_detec_history");
+          SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? token = prefs.getString('jwt_token');
+    var url = Uri.parse("http://$ip:$port/routes/history/fetch_detec_history");
 
-    var response = await http.get(url);
+    var response = await http.get(url,
+       headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },);
 
     if (response.statusCode == 200) {
       setState(() {
@@ -101,10 +108,14 @@ List<dynamic> getPaginatedWarnings() {
        Map<String, String?> settings = await User.getSettings();
   String? ip = settings['ip'];
   String? port = settings['port'];
+           SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? token = prefs.getString('jwt_token');
     try {
       var response = await http.delete(
-        Uri.parse("http://$ip:$port/deleteHistory"),
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse("http://$ip:$port/routes/deleteHistory"),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json'},
         body: jsonEncode({'id': historyId}),
       );
 
@@ -125,10 +136,19 @@ List<dynamic> getPaginatedWarnings() {
     Map<String, String?> settings = await User.getSettings();
     String? ip = settings['ip'];
     String? port = settings['port'];
-    final response =
-        await http.get(Uri.parse('http://$ip:$port/setThreshold/fetch_group'));
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? token = prefs.getString('jwt_token');
 
-    if (response.statusCode == 200) {
+ String url = "http://$ip:$port/routes/setThreshold/fetch_group";
+    try {
+      final response = await http.get(
+        Uri.parse(url),
+         headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      );
+          if (response.statusCode == 200) {
       setState(() {
         var groups = json.decode(response.body)['AttackGroup'];
         List<String> fetchedGroups =
@@ -142,6 +162,12 @@ List<dynamic> getPaginatedWarnings() {
     } else {
       print('Failed to load attack groups');
     }
+    }catch (e){
+        print('Error: $e');
+     print('Failed to load data');
+
+    }
+  
   }
 
   Future<void> _showDatePicker(BuildContext context) async {

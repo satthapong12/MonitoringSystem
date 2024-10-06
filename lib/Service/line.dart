@@ -1,5 +1,3 @@
-
-
 import 'package:flutter/material.dart';
 
 import 'dart:async';
@@ -13,19 +11,22 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 Future<List<String>> sendtocheckAnd() async {
   // รับโทเค็นจาก User
-    Map<String, String?> settings = await User.getSettings();
+  Map<String, String?> settings = await User.getSettings();
   String? ip = settings['ip'];
   String? port = settings['port'];
   print(port);
   List<String> storedTokens = await User.getLineNotifyTokens();
   print('check update tokens fun: $storedTokens'); // Debugging line
-  
-  var url = Uri.parse('http://$ip:$port/pushNotification/receiveTokens');
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  String? token = prefs.getString('jwt_token');
+
+  var url = Uri.parse('http://$ip:$port/routes/pushNotification/receiveTokens');
 
   try {
     var response = await http.post(
       url,
       headers: <String, String>{
+        'Authorization': 'Bearer $token',
         'Content-Type': 'application/json; charset=UTF-8',
       },
       body: jsonEncode({'tokens': storedTokens}),
@@ -47,13 +48,15 @@ Future<void> deleteToken(String token) async {
   Map<String, String?> settings = await User.getSettings();
   String? ip = settings['ip'];
   String? port = settings['port'];
-
-  var url = Uri.parse('http://$ip:$port/pushNotification/deleteToken');
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  String? token = prefs.getString('jwt_token');
+  var url = Uri.parse('http://$ip:$port/routes/pushNotification/deleteToken');
 
   try {
     var response = await http.delete(
       url,
       headers: <String, String>{
+        'Authorization': 'Bearer $token',
         'Content-Type': 'application/json; charset=UTF-8',
       },
       body: jsonEncode({'token': token}),
@@ -71,17 +74,19 @@ Future<void> deleteToken(String token) async {
   }
 }
 
-
 Future<void> checkAndSendLineNotification() async {
   Map<String, String?> settings = await User.getSettings();
   String? ip = settings['ip'];
   String? port = settings['port'];
- 
-  var url = Uri.parse('http://$ip:$port/pushNotification/sendNotifications');
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  String? token = prefs.getString('jwt_token');
+  var url =
+      Uri.parse('http://$ip:$port/routes/pushNotification/sendNotifications');
 
   try {
     // รับข้อมูลจากเซิร์ฟเวอร์โดยไม่ส่งโทเค็น
     var response = await http.post(url, headers: <String, String>{
+      'Authorization': 'Bearer $token',
       'Content-Type': 'application/json; charset=UTF-8',
     });
 
@@ -91,7 +96,8 @@ Future<void> checkAndSendLineNotification() async {
     if (response.statusCode == 200) {
       var responseData = json.decode(response.body) as Map<String, dynamic>;
 
-      if (responseData.containsKey('message') && responseData.containsKey('notificationStatus')) {
+      if (responseData.containsKey('message') &&
+          responseData.containsKey('notificationStatus')) {
         var message = responseData['message'];
         var notificationStatus = responseData['notificationStatus'];
 
@@ -104,13 +110,13 @@ Future<void> checkAndSendLineNotification() async {
         print('Invalid response format or data is null.');
       }
     } else {
-      print('Failed to receive notification. Status code: ${response.statusCode}');
+      print(
+          'Failed to receive notification. Status code: ${response.statusCode}');
     }
   } catch (e) {
     print('Error receiving notification: $e');
   }
 }
-
 
 Future<void> LocalNotification() async {
   try {
@@ -118,18 +124,20 @@ Future<void> LocalNotification() async {
     Map<String, String?> settings = await User.getSettings();
     String? ip = settings['ip'];
     String? port = settings['port'];
-
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? token = prefs.getString('jwt_token');
     if (ip == null || port == null) {
       print('IP หรือ Port เป็น null ไม่สามารถดำเนินการได้');
       return;
     }
 
-    var url = Uri.parse('http://$ip:$port/checkData/detect');
+    var url = Uri.parse('http://$ip:$port/routes/detectRoute/detect');
 
     // ส่งคำขอ GET ไปยัง API
     var response = await http.get(
       url,
       headers: <String, String>{
+        'Authorization': 'Bearer $token',
         'Content-Type': 'application/json; charset=UTF-8',
       },
     );

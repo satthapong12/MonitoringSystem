@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math';
 
 import '../Service/fetch_user_profile.dart';
@@ -40,11 +41,17 @@ class _FileContentPageState extends State<FileContentPage> {
     Map<String, String?> settings = await User.getSettings();
     String? ip = settings['ip'];
     String? port = settings['port'];
+   SharedPreferences prefs = await SharedPreferences.getInstance();
+  String? token = prefs.getString('jwt_token');
     final encodedFilePath = Uri.encodeComponent(widget.filePath);
-    var url = Uri.parse("http://$ip:$port/readfile/file-content/$encodedFilePath");
+    var url = Uri.parse("http://$ip:$port/routes/readfile/file-content/$encodedFilePath");
 
     try {
-      var response = await http.get(url);
+      var response = await http.get(url,
+       headers: {
+        'Authorization': 'Bearer $token',
+      
+      },);
 
       if (response.statusCode == 200) {
         setState(() {
